@@ -82,12 +82,23 @@ jobs:
       - name: Uji migrasi dan rollback
         if: matrix.database == 'mysql'
         run: |
-          php artisan migrate --force --no-interaction
-          php artisan migrate:rollback --force --no-interaction
-          php artisan migrate --force --no-interaction
+          {
+            php artisan migrate --force --no-interaction
+            php artisan migrate:rollback --force --no-interaction
+            php artisan migrate --force --no-interaction
+          } 2>&1 | tee migrate-output.log
 
       - name: Jalankan tes PHPUnit
-        run: php artisan test --compact
+        run: php artisan test --compact 2>&1 | tee test-output.log
+
+      - name: Tampilkan galat sebagai anotasi
+        if: failure()
+        run: |
+          for file in migrate-output.log test-output.log; do
+            [ -f "$file" ] || continue
+            body=$(tail -c 6000 "$file" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=${file}::${body}"
+          done
 
   frontend:
     name: Frontend
