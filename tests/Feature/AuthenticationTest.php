@@ -172,7 +172,7 @@ class AuthenticationTest extends TestCase
             ->missing('auth.user.remember_token')
             ->where('auth.permissions', ['dashboard.view'])
             ->where('navigation.0.label', 'Dasbor')
-            ->has('navigation', 8));
+            ->has('navigation', 9));
     }
 
     public function test_logout_invalidates_the_session_and_records_the_actor(): void
