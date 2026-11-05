@@ -1,32 +1,39 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { CalendarDays, FlaskConical, ListOrdered, Pencil, Plus, Tags, Trash2 } from 'lucide-react';
+import { CalendarDays, FileText, FlaskConical, ListOrdered, Pencil, Plus, Tags, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
 import { Badge, Button, EmptyState, Field, InfoBox, Modal, PageHeader, Panel, Select } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
 
-type MasterTab = 'forms' | 'ingredients' | 'stages' | 'holidays';
+type MasterTab = 'forms' | 'ingredients' | 'stages' | 'documents' | 'holidays';
 type NamedItem = { id: number; name: string; is_active: boolean; update_url: string };
 type MaterialItem = NamedItem & { supplier: string | null };
 type StageItem = NamedItem & { code: string; phase: string; phase_label: string; sort_order: number; sla_days: number | null; waits_for_external: boolean };
 type PhaseOption = { value: string; label: string };
+type DocumentTypeItem = NamedItem & {
+    phase: string; phase_label: string; scope: string; scope_label: string; requirement: string; requirement_label: string;
+    pic_role: string; pic_label: string; verifier_role: string | null; verifier_label: string | null; requires_expiry_date: boolean; max_age_months: number | null;
+};
+type DocumentOptions = { phases: PhaseOption[]; scopes: PhaseOption[]; requirements: PhaseOption[]; pics: PhaseOption[]; verifiers: PhaseOption[] };
 type HolidayItem = { id: number; date: string; name: string; update_url: string; delete_url: string };
-type MasterUrls = { dosageForms: string; categories: string; materials: string; stages: string; holidays: string };
+type MasterUrls = { dosageForms: string; categories: string; materials: string; stages: string; documentTypes: string; holidays: string };
 type NamedKind = { title: string; noun: string; storeUrl: string };
 type Editor =
     | { kind: 'named'; list: NamedKind; item: NamedItem | null }
     | { kind: 'material'; item: MaterialItem | null }
     | { kind: 'stage'; item: StageItem | null }
+    | { kind: 'document'; item: DocumentTypeItem | null }
     | { kind: 'holiday'; item: HolidayItem | null };
 
 const tabs: Array<[MasterTab, string]> = [
     ['forms', 'Sediaan & kategori'],
     ['ingredients', 'Bahan baku'],
     ['stages', 'Tahapan & SLA'],
+    ['documents', 'Jenis dokumen'],
     ['holidays', 'Hari libur'],
 ];
 
-export default function Master({ tab, dosageForms, categories, materials, stages, phases, holidays, urls }: { tab: MasterTab; dosageForms: NamedItem[]; categories: NamedItem[]; materials: MaterialItem[]; stages: StageItem[]; phases: PhaseOption[]; holidays: HolidayItem[]; urls: MasterUrls }) {
+export default function Master({ tab, dosageForms, categories, materials, stages, phases, documentTypes, documentOptions, holidays, urls }: { tab: MasterTab; dosageForms: NamedItem[]; categories: NamedItem[]; materials: MaterialItem[]; stages: StageItem[]; phases: PhaseOption[]; documentTypes: DocumentTypeItem[]; documentOptions: DocumentOptions; holidays: HolidayItem[]; urls: MasterUrls }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [activeTab, setActiveTab] = useState<MasterTab>(tab);
     const [editor, setEditor] = useState<Editor | null>(null);
@@ -92,6 +99,30 @@ export default function Master({ tab, dosageForms, categories, materials, stages
                     <div className="mt-5"><InfoBox>SLA dihitung dalam hari kerja dan berhenti selama tahap menunggu BPOM atau pihak luar. Kode tahap tetap walaupun nama diubah, karena dipakai alur tiket.</InfoBox></div>
                 </>
             )}
+            {activeTab === 'documents' && (
+                <>
+                    <Panel title="Jenis dokumen" description="Dokumen pada checklist pra-registrasi dan registrasi beserta PIC dan aturan masa berlakunya." action={<Button variant="secondary" icon={Plus} onClick={() => setEditor({ kind: 'document', item: null })}>Tambah jenis dokumen</Button>}>
+                        {documentTypes.length ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full"><thead><tr><th>Jenis dokumen</th><th>Fase</th><th>Cakupan</th><th>Sifat</th><th>PIC</th><th>Verifikator isi</th><th>Masa berlaku</th><th>Status</th><th>Aksi</th></tr></thead>
+                                    <tbody>{documentTypes.map((type) => <tr key={type.id}>
+                                        <td><strong>{type.name}</strong></td>
+                                        <td>{type.phase_label}</td>
+                                        <td>{type.scope_label}</td>
+                                        <td>{type.requirement_label}</td>
+                                        <td>{type.pic_label}</td>
+                                        <td>{type.verifier_label ?? 'Hanya RA'}</td>
+                                        <td>{validityLabel(type)}</td>
+                                        <td><StatusBadge active={type.is_active} /></td>
+                                        <td><Button variant="ghost" icon={Pencil} aria-label={`Ubah ${type.name}`} onClick={() => setEditor({ kind: 'document', item: type })}>Ubah</Button></td>
+                                    </tr>)}</tbody>
+                                </table>
+                            </div>
+                        ) : <EmptyState title="Belum ada jenis dokumen" description="Daftar dokumen per fase menunggu konfirmasi Regulatory Affairs." icon={FileText} />}
+                    </Panel>
+                    <div className="mt-5"><InfoBox>Dokumen ber-PIC klien diunggah melalui tautan bertoken. RA selalu menyetujui pemakaian dokumen; verifikator isi menambah pemeriksaan sebelum itu.</InfoBox></div>
+                </>
+            )}
             {activeTab === 'holidays' && (
                 <>
                     <Panel title="Hari libur" description="Libur nasional dan cuti bersama yang tidak dihitung sebagai hari kerja." action={<Button variant="secondary" icon={Plus} onClick={() => setEditor({ kind: 'holiday', item: null })}>Tambah hari libur</Button>}>
@@ -116,6 +147,7 @@ export default function Master({ tab, dosageForms, categories, materials, stages
             {editor?.kind === 'named' && <NamedEditor key={editor.item?.id ?? 'new'} list={editor.list} item={editor.item} onClose={() => setEditor(null)} />}
             {editor?.kind === 'material' && <MaterialEditor key={editor.item?.id ?? 'new'} item={editor.item} storeUrl={urls.materials} onClose={() => setEditor(null)} />}
             {editor?.kind === 'stage' && <StageEditor key={editor.item?.id ?? 'new'} item={editor.item} phases={phases} nextOrder={Math.max(0, ...stages.map((stage) => stage.sort_order)) + 1} storeUrl={urls.stages} onClose={() => setEditor(null)} />}
+            {editor?.kind === 'document' && <DocumentTypeEditor key={editor.item?.id ?? 'new'} item={editor.item} options={documentOptions} storeUrl={urls.documentTypes} onClose={() => setEditor(null)} />}
             {editor?.kind === 'holiday' && <HolidayEditor key={editor.item?.id ?? 'new'} item={editor.item} storeUrl={urls.holidays} onClose={() => setEditor(null)} />}
         </BackendLayout>
     );
@@ -213,6 +245,49 @@ function StageEditor({ item, phases, nextOrder, storeUrl, onClose }: { item: Sta
             </form>
         </Modal>
     );
+}
+
+function DocumentTypeEditor({ item, options, storeUrl, onClose }: { item: DocumentTypeItem | null; options: DocumentOptions; storeUrl: string; onClose: () => void }) {
+    const form = useForm({
+        name: item?.name ?? '',
+        phase: item?.phase ?? options.phases[0]?.value ?? '',
+        scope: item?.scope ?? options.scopes[0]?.value ?? '',
+        requirement: item?.requirement ?? options.requirements[0]?.value ?? '',
+        pic_role: item?.pic_role ?? options.pics[0]?.value ?? '',
+        verifier_role: item?.verifier_role ?? '',
+        requires_expiry_date: item?.requires_expiry_date ?? false,
+        max_age_months: item?.max_age_months === null || item?.max_age_months === undefined ? '' : String(item.max_age_months),
+        is_active: item?.is_active ?? true,
+    });
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (item) form.put(item.update_url, { preserveScroll: true, onSuccess: onClose });
+        else form.post(storeUrl, { preserveScroll: true, onSuccess: onClose });
+    }
+
+    return (
+        <Modal title={item ? 'Ubah jenis dokumen' : 'Tambah jenis dokumen'} description="Perubahan berlaku untuk checklist tiket baru; tiket aktif disinkronkan oleh RA." onClose={onClose}>
+            <form onSubmit={submit} className="form-stack">
+                <Field label="Nama jenis dokumen" error={form.errors.name}><input autoFocus required maxLength={150} value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
+                <Field label="Fase" error={form.errors.phase}><Select value={form.data.phase} onChange={(event) => form.setData('phase', event.target.value)}>{options.phases.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+                <Field label="Cakupan" error={form.errors.scope} hint="Dokumen klien, bahan baku, dan perusahaan dipakai ulang lintas tiket."><Select value={form.data.scope} onChange={(event) => form.setData('scope', event.target.value)}>{options.scopes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+                <Field label="Sifat" error={form.errors.requirement}><Select value={form.data.requirement} onChange={(event) => form.setData('requirement', event.target.value)}>{options.requirements.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+                <Field label="PIC" error={form.errors.pic_role}><Select value={form.data.pic_role} onChange={(event) => form.setData('pic_role', event.target.value)}>{options.pics.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+                <Field label="Verifikator isi" error={form.errors.verifier_role}><Select value={form.data.verifier_role} onChange={(event) => form.setData('verifier_role', event.target.value)}><option value="">Tidak ada (hanya persetujuan RA)</option>{options.verifiers.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={form.data.requires_expiry_date} onChange={(event) => form.setData('requires_expiry_date', event.target.checked)} />Memiliki masa berlaku (wajib isi tanggal kedaluwarsa)</label>
+                {form.errors.requires_expiry_date && <p role="alert" className="text-red-700">{form.errors.requires_expiry_date}</p>}
+                <Field label="Umur maksimal (bulan)" error={form.errors.max_age_months} hint="Opsional. Contoh: CoA paling lama 6 bulan sejak terbit."><input type="number" min={1} max={120} value={form.data.max_age_months} onChange={(event) => form.setData('max_age_months', event.target.value)} /></Field>
+                {item && <ActiveToggle checked={form.data.is_active} error={form.errors.is_active} onChange={(checked) => form.setData('is_active', checked)} />}
+                <EditorFooter processing={form.processing} onClose={onClose} />
+            </form>
+        </Modal>
+    );
+}
+
+function validityLabel(type: DocumentTypeItem) {
+    const parts = [type.requires_expiry_date ? 'Ada masa berlaku' : null, type.max_age_months ? `Maks. ${type.max_age_months} bulan` : null].filter(Boolean);
+    return parts.length ? parts.join(' · ') : '—';
 }
 
 function HolidayEditor({ item, storeUrl, onClose }: { item: HolidayItem | null; storeUrl: string; onClose: () => void }) {
