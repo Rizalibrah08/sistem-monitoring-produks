@@ -9,6 +9,8 @@ import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
 import Templates from '../../resources/js/Pages/Backend/Templates';
+import TicketShow from '../../resources/js/Pages/Backend/TicketShow';
+import Tickets from '../../resources/js/Pages/Backend/Tickets';
 import { BackendLayout } from '../../resources/js/layouts/backend-layout';
 
 function renderPage(children: ReactNode, overrides: Record<string, unknown> = {}) {
@@ -435,5 +437,78 @@ describe('clients', () => {
 
         expect(requests).toEqual([{ url: '/clients', data: { name: 'Bumi Sehat', company: '', pic_name: 'Sari', whatsapp: '0812 3456 7890', email: '', marketing_user_id: '7' } }]);
         expect(screen.getByRole('alert')).toHaveTextContent('Nomor WhatsApp ini sudah dipakai klien lain.');
+    });
+});
+
+const ticketRow = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', progress: 50, created_at: '05/11/2026', show_url: '/tickets/5' };
+const ticketListProps = {
+    tickets: { data: [ticketRow], current_page: 1, last_page: 1, total: 1, prev_page_url: null, next_page_url: null },
+    filters: { search: '', phase: '', status: '' },
+    phases: [{ value: 'awal', label: 'Awal' }, { value: 'pra_registrasi', label: 'Pra-registrasi' }],
+    statuses: [{ value: 'aktif', label: 'Aktif' }],
+    urls: { store: '/tickets', clients: '/clients' },
+};
+const ticketRoutes = { routes: { tickets: '/tickets' } };
+
+describe('tickets', () => {
+    it('lists tickets with a link to their detail and hides creation from staff who cannot create', () => {
+        renderPage(<Tickets {...ticketListProps} can={{ create: false }} createOptions={null} />, { ...ticketRoutes, auth: { user: staff, permissions: ['tickets.view'] } });
+
+        expect(screen.getByRole('link', { name: 'PRD-2026-0001' })).toHaveAttribute('href', '/tickets/5');
+        expect(screen.getByText('Kapsul Jahe Merah')).toBeInTheDocument();
+        expect(screen.getByText('50%')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Buat tiket' })).not.toBeInTheDocument();
+    });
+
+    it('lets marketing create a ticket for one of their clients', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <Tickets
+                {...ticketListProps}
+                can={{ create: true }}
+                createOptions={{ clients: [{ value: 3, label: 'Nusantara Herbal' }], dosageForms: [{ value: 1, label: 'Kapsul' }], categories: [{ value: 2, label: 'Jamu' }] }}
+            />,
+            { ...ticketRoutes, auth: { user: marketingUser, permissions: ['tickets.view', 'tickets.create'] } },
+        );
+
+        await user.click(screen.getByRole('button', { name: 'Buat tiket' }));
+        await user.selectOptions(screen.getByLabelText('Klien'), '3');
+        await user.type(screen.getByLabelText('Nama produk'), 'Serbuk Temulawak');
+        await user.selectOptions(screen.getByLabelText('Sediaan'), '1');
+        await user.selectOptions(screen.getByLabelText('Kategori'), '2');
+        await user.click(screen.getByRole('button', { name: 'Simpan tiket' }));
+
+        expect(requests).toEqual([{ url: '/tickets', data: { client_id: '3', product_name: 'Serbuk Temulawak', dosage_form_id: '1', category_id: '2' } }]);
+    });
+
+    it('shows the checklist of each phase with its progress, the stages, and the history', () => {
+        renderPage(
+            <TicketShow
+                ticket={{ id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' }}
+                checklist={[
+                    { phase: 'pra_registrasi', label: 'Pra-registrasi', progress: 50, documents: [
+                        { id: 1, name: 'Master formula', scope: 'Tiket', requirement: 'Wajib', pic: 'R&D', both_phases: false, status: 'belum_ada', status_label: 'Belum ada' },
+                        { id: 2, name: 'Surat kuasa', scope: 'Klien', requirement: 'Wajib', pic: 'Klien', both_phases: true, status: 'disetujui', status_label: 'Disetujui' },
+                    ] },
+                    { phase: 'registrasi', label: 'Registrasi', progress: 0, documents: [] },
+                ]}
+                stages={[{ name: 'Pengembangan sampel', started_at: '05/11/2026 10:00', due_at: null, finished_at: null }]}
+                history={[{ id: 9, event: 'ticket.created', label: 'Tiket dibuat', actor: 'Rizal Marketing', created_at: '05/11/2026 10:00' }]}
+            />,
+            { ...ticketRoutes, auth: { user: marketingUser, permissions: ['tickets.view'] } },
+        );
+
+        expect(screen.getByRole('heading', { name: 'Kapsul Jahe Merah' })).toBeInTheDocument();
+        expect(screen.getByText('PRD-2026-0001')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Pra-registrasi · 50%' })).toBeInTheDocument();
+        expect(screen.getByText('Master formula')).toBeInTheDocument();
+        expect(screen.getByText('Kedua fase')).toBeInTheDocument();
+        expect(screen.getByText('Belum ada dokumen di fase ini.')).toBeInTheDocument();
+        expect(screen.getAllByText('Pengembangan sampel').length).toBeGreaterThan(0);
+        expect(screen.getByText('Tiket dibuat')).toBeInTheDocument();
     });
 });

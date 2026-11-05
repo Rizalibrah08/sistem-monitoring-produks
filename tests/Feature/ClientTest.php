@@ -95,6 +95,7 @@ class ClientTest extends TestCase
             ->where('clients.data.0.name', 'Nusantara Herbal')
             ->where('clients.data.0.marketing_user', 'Rizal Marketing')
             ->where('filters.search', 'nusantara')
+            ->where('routes.clients', '/clients')
             ->where('marketingStaff', fn ($staff): bool => collect($staff)->pluck('label')->contains('Rizal Marketing'))
             ->where('navigation', fn ($items): bool => collect($items)->contains(fn (array $item): bool => $item['id'] === 'clients' && $item['available'] === true)));
     }

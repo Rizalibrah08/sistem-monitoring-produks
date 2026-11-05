@@ -170,7 +170,7 @@ class AuthenticationTest extends TestCase
             ->where('auth.user.role', 'ra')
             ->missing('auth.user.password')
             ->missing('auth.user.remember_token')
-            ->where('auth.permissions', ['dashboard.view', 'document_rules.manage'])
+            ->where('auth.permissions', ['dashboard.view', 'document_rules.manage', 'tickets.view'])
             ->where('navigation.0.label', 'Dasbor')
             ->has('navigation', 10));
     }

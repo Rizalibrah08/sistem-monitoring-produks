@@ -27,37 +27,40 @@ class RolePermissionTest extends TestCase
         $this->seed();
 
         $this->assertDatabaseCount('roles', 7);
-        $this->assertDatabaseCount('permissions', 7);
+        $this->assertDatabaseCount('permissions', count(self::ALL_PERMISSIONS));
         $this->assertDatabaseCount('users', 0);
     }
 
+    /** @var list<string> */
+    private const ALL_PERMISSIONS = [
+        'audit.view', 'clients.manage', 'dashboard.view', 'document_rules.manage', 'master.manage',
+        'materials.create', 'tickets.create', 'tickets.view', 'users.manage',
+    ];
+
+    /** @param list<string> $granted */
     #[DataProvider('rolePermissions')]
-    public function test_role_permissions_match_the_foundation_access_matrix(string $role, bool $manageUsers, bool $viewAudit, bool $manageMasterData, bool $createMaterials, bool $manageDocumentRules, bool $manageClients): void
+    public function test_role_permissions_match_the_access_matrix(string $role, array $granted): void
     {
         $this->seed();
         $user = User::factory()->create();
         $user->assignRole($role);
 
-        $this->assertTrue(Gate::forUser($user)->allows('dashboard.view'));
-        $this->assertSame($manageUsers, Gate::forUser($user)->allows('users.manage'));
-        $this->assertSame($viewAudit, Gate::forUser($user)->allows('audit.view'));
-        $this->assertSame($manageMasterData, Gate::forUser($user)->allows('master.manage'));
-        $this->assertSame($createMaterials, Gate::forUser($user)->allows('materials.create'));
-        $this->assertSame($manageDocumentRules, Gate::forUser($user)->allows('document_rules.manage'));
-        $this->assertSame($manageClients, Gate::forUser($user)->allows('clients.manage'));
+        foreach (self::ALL_PERMISSIONS as $permission) {
+            $this->assertSame(in_array($permission, $granted, true), Gate::forUser($user)->allows($permission), "{$role} · {$permission}");
+        }
     }
 
-    /** @return array<string, array{string, bool, bool, bool, bool, bool, bool}> */
+    /** @return array<string, array{string, list<string>}> */
     public static function rolePermissions(): array
     {
         return [
-            'admin' => ['admin', true, true, true, true, true, false],
-            'manager' => ['manager', false, true, false, false, false, true],
-            'marketing' => ['marketing', false, false, false, false, false, true],
-            'research' => ['rnd', false, false, false, true, false, false],
-            'quality' => ['qa', false, false, false, false, false, false],
-            'regulatory' => ['ra', false, false, false, false, true, false],
-            'finance' => ['finance', false, false, false, false, false, false],
+            'admin' => ['admin', ['dashboard.view', 'users.manage', 'audit.view', 'master.manage', 'materials.create', 'document_rules.manage']],
+            'manager' => ['manager', ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view']],
+            'marketing' => ['marketing', ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create']],
+            'research' => ['rnd', ['dashboard.view', 'materials.create', 'tickets.view']],
+            'quality' => ['qa', ['dashboard.view', 'tickets.view']],
+            'regulatory' => ['ra', ['dashboard.view', 'document_rules.manage', 'tickets.view']],
+            'finance' => ['finance', ['dashboard.view']],
         ];
     }
 }
