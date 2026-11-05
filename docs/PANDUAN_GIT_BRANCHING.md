@@ -14,8 +14,8 @@ feature/...     ●●    ●●         ●●●              (pekerjaan haria
 
 | Branch | Fungsi | Deploy ke | Siapa yang boleh merge |
 |---|---|---|---|
-| `main` | Kode yang sudah didemokan dan disetujui; selalu siap dipakai | Server produksi (deployment akhir Inkremen 8) | Lewat Pull Request dari `develop` atau `hotfix/*`, disetujui 1 anggota lain |
-| `develop` | Integrasi semua pekerjaan inkremen yang sedang berjalan | Server staging (demo ke pengguna) | Lewat Pull Request dari branch sementara, CI wajib lulus |
+| `main` | Kode yang sudah didemokan dan disetujui; selalu siap dipakai | Server produksi (deployment akhir Inkremen 8) | Lewat Pull Request dari `develop` atau `hotfix/*`, CI wajib lulus, setelah demo di staging dan diketahui anggota lain |
+| `develop` | Integrasi semua pekerjaan inkremen yang sedang berjalan | Server staging (demo ke pengguna) | Lewat Pull Request dari branch sementara, CI wajib lulus; pembuat PR boleh merge sendiri |
 
 Aturan untuk keduanya:
 
@@ -102,12 +102,13 @@ git push --force-with-lease        # aman: hanya untuk branch milik sendiri
 
 ### 4.4 Membuka Pull Request
 
-1. Buka GitHub, lalu klik **Compare & pull request**. Base: `develop`; compare: branch Anda.
-2. Judul PR mengikuti format commit, misalnya `feat(tiket): buat tiket dan checklist dua fase (F03)`.
-3. Isi template PR, termasuk checklist Definition of Done.
-4. Minta review dari anggota lain: Rizal mereview infra/docs, Adit mereview fitur dan menguji di staging.
-5. Setelah disetujui dan CI lulus, pilih **Squash and merge**.
-6. Hapus branch setelah merge (tombol **Delete branch**), lalu bersihkan lokal:
+1. Buka GitHub, lalu klik **Compare & pull request**.
+2. **Periksa base sebelum membuat PR: harus `develop`.** Bila tertulis `main`, ganti lewat menu base. Pada PR yang sudah dibuat, klik **Edit** di sebelah judul untuk mengganti base.
+3. Judul PR mengikuti format commit, misalnya `feat(tiket): buat tiket dan checklist dua fase (F03)`.
+4. Isi template PR, termasuk checklist Definition of Done.
+5. Tunggu semua pemeriksaan CI hijau (`Backend (sqlite)`, `Backend (mysql)`, `Frontend`, `Build dan uji asap Compose`). Bila merah, buka tab **Files changed** atau **Checks**; cuplikan galat tampil sebagai anotasi.
+6. Merge ke `develop` dengan **Squash and merge**. Pembuat PR boleh merge sendiri tanpa menunggu review; tim berdua cukup saling memberi tahu lewat komentar PR atau chat. Review tetap dianjurkan untuk perubahan besar, seperti skema basis data, perhitungan TOPSIS, atau alur gerbang fase.
+7. Hapus branch setelah merge (tombol **Delete branch**), lalu bersihkan lokal:
 
 ```sh
 git switch develop
@@ -160,8 +161,9 @@ Dilakukan Adit setelah semua butir Definition of Done inkremen terpenuhi (PRD §
 1. Pastikan `develop` lulus CI dan sudah didemokan di staging.
 2. Buka PR dari `develop` ke `main` dengan judul `release: inkremen 2 — tiket, dokumen, validasi`.
 3. Isi deskripsi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
-4. Merge dengan **Create a merge commit** (bukan squash), agar riwayat `develop` tetap terlihat di `main`.
-5. Beri tag dan catatan rilis:
+4. Minta anggota lain membaca deskripsi PR. Ini satu-satunya titik yang sebaiknya tidak di-merge sendiri tanpa sepengetahuan anggota lain, karena `main` menjadi bukti rilis tiap inkremen.
+5. Merge dengan **Create a merge commit** (bukan squash), agar riwayat `develop` tetap terlihat di `main`.
+6. Beri tag dan catatan rilis:
 
 ```sh
 git switch main
@@ -170,7 +172,7 @@ git tag -a v0.2.0 -m "Inkremen 2: tiket, dokumen, validasi"
 git push origin v0.2.0
 ```
 
-6. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**.
+7. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**.
 
 ## 7. Hotfix produksi
 
@@ -184,7 +186,7 @@ git switch -c hotfix/login-terkunci-permanen
 git push -u origin hotfix/login-terkunci-permanen
 ```
 
-1. Buka PR ke `main`, review, lalu merge. Beri tag patch (misalnya `v1.0.1`).
+1. Buka PR ke `main`, tunggu CI hijau, beri tahu anggota lain, lalu merge. Beri tag patch (misalnya `v1.0.1`).
 2. Bawa perbaikan ke `develop`:
 
 ```sh
@@ -196,20 +198,22 @@ git push origin develop
 
 ## 8. Pengaturan proteksi branch di GitHub
 
-Dilakukan sekali oleh pemilik repository (Rizal). Buka **Settings → Branches → Add branch ruleset** (atau **Add rule**), lalu buat aturan untuk `main` dan `develop`:
+Dilakukan sekali oleh anggota yang memiliki akses admin repository. Buka **Settings → Rules → Rulesets → New branch ruleset**, lalu buat aturan untuk `main` dan `develop`:
 
-- **Require a pull request before merging**, dengan **Required approvals: 1**.
-- **Require status checks to pass**: pilih job CI setelah GitHub Actions dibuat (Inkremen 0).
+- **Require a pull request before merging**, dengan **Required approvals: 0**. Tim berdua dapat merge sendiri; yang dijaga adalah CI, bukan persetujuan.
+- **Require status checks to pass**, lalu tambahkan `Backend (sqlite)`, `Backend (mysql)`, `Frontend`, dan `Build dan uji asap Compose`. Nama job baru bisa dipilih setelah workflow pernah berjalan sekali.
 - **Block force pushes**.
 - **Restrict deletions**.
-- Khusus `main`: aktifkan juga **Require linear history** = *tidak*. Merge commit dibutuhkan untuk rilis.
+- Jangan aktifkan **Require linear history**, karena rilis ke `main` memakai merge commit.
+
+Bypass list dibiarkan kosong agar aturan berlaku juga untuk admin.
 
 Lalu di **Settings → General → Pull Requests**:
 
 - Aktifkan **Allow squash merging** dan **Allow merge commits**; nonaktifkan **Allow rebase merging**.
 - Aktifkan **Automatically delete head branches**.
 
-Terakhir, ubah **Default branch** ke `develop` agar PR baru otomatis mengarah ke `develop`.
+Terakhir, di **Settings → General → Default branch**, ganti ke `develop` agar base PR baru otomatis `develop`. Tanpa langkah ini, PR mengarah ke `main` dan melewati staging.
 
 ## 9. Hal yang tidak boleh di-commit
 
