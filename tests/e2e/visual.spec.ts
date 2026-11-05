@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './preview-test';
 
 test('desktop and mobile screens have no client errors or horizontal overflow', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });

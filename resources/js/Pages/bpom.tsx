@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router } from '../lib/preview-navigation';
 import { ArrowRight, Check, FileCheck2, FilePlus2, LockKeyhole, Plus, ShieldCheck } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import {

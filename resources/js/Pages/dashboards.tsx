@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link } from '../lib/preview-navigation';
 import {
     Activity,
     ArrowRight,

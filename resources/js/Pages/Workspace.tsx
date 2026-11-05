@@ -1,7 +1,8 @@
 import { Head } from '@inertiajs/react';
 import { LockKeyhole } from 'lucide-react';
 import { EmptyState, PageHeader, Panel } from '../components/ui';
-import { StaffLayout } from '../layouts/staff-layout';
+import { PreviewStaffLayout } from '../layouts/preview-staff-layout';
+import { PreviewLayout } from '../layouts/preview-layout';
 import { usePreview } from '../mocks/preview-provider';
 import type { Role } from '../types';
 import { DashboardPage } from './dashboards';
@@ -87,6 +88,10 @@ export default function Workspace({
     entityId?: string | null;
     initialRole?: Role;
 }) {
+    return <WorkspaceContent screen={screen} entityId={entityId} />;
+}
+
+function WorkspaceContent({ screen, entityId }: { screen: string; entityId?: string | null }) {
     const { role } = usePreview();
     const head = <Head title={titles[screen] ?? 'Workspace'} />;
     if (screen === 'login')
@@ -225,11 +230,13 @@ export default function Workspace({
     return (
         <>
             {head}
-            <StaffLayout screen={screen}>
+            <PreviewStaffLayout screen={screen}>
                 <div key={`${screen}-${entityId ?? ''}`} className="page-enter">
                     {content}
                 </div>
-            </StaffLayout>
+            </PreviewStaffLayout>
         </>
     );
 }
+
+Workspace.layout = PreviewLayout;
