@@ -31,5 +31,8 @@ Wireframe Sistem Monitoring Pendaftaran Produk (1)
 *.md
 
 compose.yaml
+compose.server.yaml
+docker/deploy
+docker/edge
 Dockerfile
 docker/**/*.md

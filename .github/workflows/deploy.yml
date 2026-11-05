@@ -1,0 +1,162 @@
+name: Deploy
+
+# Dua fase di satu VPS:
+#   Run workflow (manual)  → CI + uji Docker → build image → fase test
+#   push tag v*            → CI → image yang sama dari fase test → fase utama
+# Fase utama menolak commit yang image-nya belum pernah dibuat untuk fase test.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: deploy-${{ github.ref_type == 'tag' && 'utama' || 'test' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  docker:
+    name: Uji Docker
+    if: github.ref_type != 'tag'
+    uses: ./.github/workflows/docker.yml
+
+  image:
+    name: Image
+    needs: [ci, docker]
+    if: ${{ !cancelled() && needs.ci.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.docker.result) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.names.outputs.tag }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Tentukan nama image
+        id: names
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          {
+            echo "app=ghcr.io/${repository}-app"
+            echo "web=ghcr.io/${repository}-web"
+            echo "tag=sha-${GITHUB_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cari image yang sudah dibuat untuk fase test
+        id: existing
+        env:
+          APP_IMAGE: ${{ steps.names.outputs.app }}:${{ steps.names.outputs.tag }}
+          WEB_IMAGE: ${{ steps.names.outputs.web }}:${{ steps.names.outputs.tag }}
+        run: |
+          if docker buildx imagetools inspect "$APP_IMAGE" > /dev/null 2>&1 \
+            && docker buildx imagetools inspect "$WEB_IMAGE" > /dev/null 2>&1; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tolak fase utama untuk commit yang belum lewat fase test
+        if: github.ref_type == 'tag' && steps.existing.outputs.found != 'true'
+        run: |
+          echo "::error::Commit ${GITHUB_SHA::7} belum pernah di-deploy ke fase test. Jalankan Deploy (manual) dari main, uji sampai bersih, lalu beri tag pada commit yang sama."
+          exit 1
+
+      - uses: docker/setup-buildx-action@v3
+        if: steps.existing.outputs.found != 'true'
+
+      - name: Build dan push image app
+        if: steps.existing.outputs.found != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: app
+          push: true
+          tags: ${{ steps.names.outputs.app }}:${{ steps.names.outputs.tag }}
+          cache-from: type=gha,scope=aisha
+          cache-to: type=gha,scope=aisha,mode=max
+
+      - name: Build dan push image web
+        if: steps.existing.outputs.found != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: web
+          push: true
+          tags: ${{ steps.names.outputs.web }}:${{ steps.names.outputs.tag }}
+          cache-from: type=gha,scope=aisha
+
+  deploy:
+    name: Deploy ke fase ${{ github.ref_type == 'tag' && 'utama' || 'test' }}
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: ${{ github.ref_type == 'tag' && 'utama' || 'test' }}
+      url: ${{ vars.APP_URL }}
+    permissions:
+      contents: read
+      packages: read
+    env:
+      STACK: ${{ github.ref_type == 'tag' && 'prod' || 'test' }}
+      IMAGE_TAG: ${{ needs.image.outputs.tag }}
+      TARGET: ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Siapkan SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Salin berkas compose dan skrip deploy
+        run: scp compose.yaml compose.server.yaml docker/deploy/remote-deploy.sh "$TARGET:/opt/aisha/$STACK/"
+
+      # Token GITHUB_TOKEN hanya berlaku selama job ini, jadi tidak ada kredensial GHCR permanen di server.
+      - name: Login GHCR di server
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # shellcheck disable=SC2029 # GITHUB_ACTOR sengaja diekspansi di runner
+          printf '%s' "$GHCR_TOKEN" | ssh "$TARGET" "docker login ghcr.io -u '${GITHUB_ACTOR}' --password-stdin"
+
+      - name: Deploy
+        run: |
+          # shellcheck disable=SC2029 # STACK dan IMAGE_TAG berasal dari workflow ini
+          ssh "$TARGET" "bash /opt/aisha/$STACK/remote-deploy.sh $STACK $IMAGE_TAG"
+
+      - name: Logout GHCR di server
+        if: always()
+        run: ssh "$TARGET" "docker logout ghcr.io" || true
+
+      - name: Periksa aplikasi
+        if: vars.APP_URL != ''
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors "$APP_URL/up" > /dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/login")" = "200"

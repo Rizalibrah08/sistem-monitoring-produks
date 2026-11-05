@@ -1,21 +1,21 @@
 # Panduan Git Branching — Aisha Monitor
 
-Panduan ini mengatur cara tim (Rizal sebagai Web Developer, Adit sebagai System Analyst/DevOps/QA) bekerja di repository `Rizalibrah08/sistem-monitoring-produks`. Modelnya **trunk-based**: hanya satu branch permanen, yaitu `main`. Setiap pekerjaan dikerjakan di branch pendek lalu digabung ke `main` lewat Pull Request. CI tidak berjalan di setiap PR; CI dijalankan saat masuk tahap uji dan saat deploy (lihat §6). Rilis setiap inkremen PRD v1.3 §8 ditandai dengan tag.
+Panduan ini mengatur cara tim (Rizal sebagai Web Developer, Adit sebagai System Analyst/DevOps/QA) bekerja di repository `Rizalibrah08/sistem-monitoring-produks`. Modelnya **trunk-based**: hanya satu branch permanen, yaitu `main`. Setiap pekerjaan dikerjakan di branch pendek lalu digabung ke `main` lewat Pull Request. CI tidak berjalan di setiap PR; CI dijalankan saat deploy ke fase test dan fase utama (lihat §6). Rilis setiap inkremen PRD v1.3 §8 ditandai dengan tag.
 
 ```
 feature/...    ●─●     ●─●─●        ●─●
               /   \   /     \      /   \
 main  ●──────●─────●─●───────●────●─────●──────►
                    │                    │
-               uji: CI → staging    uji: CI → staging
-                 v0.1.0               v0.2.0        tag: CI → produksi
+         Deploy manual: CI → fase test (uji sampai bersih)
+                 v0.1.0               v0.2.0        tag: CI → fase utama
 ```
 
 ## 1. Branch `main`
 
 | Branch | Fungsi | Deploy ke | Cara perubahan masuk |
 |---|---|---|---|
-| `main` | Satu-satunya sumber kebenaran | Staging saat tahap uji dimulai; produksi pada setiap tag rilis | Lewat Pull Request; pembuat PR boleh merge sendiri setelah pemeriksaan lokal lulus |
+| `main` | Satu-satunya sumber kebenaran | Fase test saat Deploy dijalankan manual; fase utama pada setiap tag rilis | Lewat Pull Request; pembuat PR boleh merge sendiri setelah pemeriksaan lokal lulus |
 
 Aturan `main`:
 
@@ -157,29 +157,30 @@ Karena PR digabung dengan squash, judul PR menjadi pesan commit di `main`. Pasti
 
 ## 6. Uji dan rilis per inkremen
 
-CI hanya berjalan di dua titik berikut. Hasilnya terlihat di tab **Actions**; bila ada job yang merah, cuplikan galatnya tampil sebagai anotasi pada halaman run tersebut.
+Server memiliki dua fase: **fase test** untuk uji dan demo, serta **fase utama** untuk pemakaian sebenarnya. Keduanya di-deploy oleh workflow **Deploy**, yang selalu menjalankan CI lebih dulu. Langkah teknis di server dan pengaturan GitHub ada di [PANDUAN_DEPLOYMENT.md](PANDUAN_DEPLOYMENT.md).
 
-| Workflow | Isi | Perkiraan waktu |
-|---|---|---|
-| **CI** | `Backend (sqlite)`, `Backend (mysql)`, `Frontend` | ± 3 menit |
-| **Docker** | `Build dan uji asap Compose` | ± 8 menit |
+| Pemicu | Yang dijalankan | Tujuan | Perkiraan waktu |
+|---|---|---|---|
+| **Actions → Deploy → Run workflow** pada `main` | CI, uji Docker, build image | Fase test | ± 15 menit |
+| Push tag `v*` | CI, lalu image yang sama dari fase test | Fase utama | ± 5 menit |
 
-### 6.1 Masuk tahap uji
+Bila ada job yang merah, cuplikan galatnya tampil sebagai anotasi pada halaman run tersebut.
+
+### 6.1 Masuk tahap uji (fase test)
 
 Dilakukan saat fitur inkremen sudah masuk `main` dan siap diuji black box atau didemokan:
 
-1. Buka tab **Actions**, pilih workflow **CI**, klik **Run workflow**, pilih branch `main`, lalu **Run workflow**.
-2. Lakukan hal yang sama untuk workflow **Docker**.
-3. Bila keduanya hijau, perbarui server staging dan lanjutkan uji black box atau demo.
-4. Bila ada yang merah, perbaiki lewat branch `fix/...`, merge, lalu jalankan ulang langkah 1–2.
+1. Buka tab **Actions → Deploy → Run workflow**, pilih branch `main`, lalu **Run workflow**.
+2. Setelah hijau, uji di `https://test.domain-anda`.
+3. Bila ada bug, perbaiki lewat branch `fix/...`, merge, lalu ulangi langkah 1. Ulangi sampai fase test bersih dari bug.
 
-### 6.2 Rilis dan deploy produksi
+### 6.2 Rilis ke fase utama
 
-Dilakukan Adit setelah semua butir Definition of Done inkremen terpenuhi (PRD §8):
+Dilakukan Adit setelah fase test bersih dan semua butir Definition of Done inkremen terpenuhi (PRD §8):
 
-1. Pastikan uji di staging (§6.1) sudah selesai untuk commit terakhir di `main`.
-2. Beri tahu anggota lain bahwa inkremen akan dirilis. Tag menjadi bukti rilis dan memicu deployment produksi.
-3. Buat tag beranotasi pada `main`:
+1. Pastikan commit terakhir di `main` adalah commit yang terakhir di-deploy dan diuji di fase test.
+2. Beri tahu anggota lain bahwa inkremen akan dirilis.
+3. Buat tag beranotasi pada commit tersebut:
 
 ```sh
 git switch main
@@ -188,7 +189,7 @@ git tag -a v0.2.0 -m "Inkremen 2: tiket, dokumen, validasi"
 git push origin v0.2.0
 ```
 
-4. Push tag otomatis menjalankan workflow **CI** dan **Docker**. Deployment produksi hanya boleh dilakukan bila keduanya hijau untuk tag tersebut.
+4. Workflow **Deploy** berjalan otomatis ke fase utama. Workflow menolak tag pada commit yang belum pernah di-deploy ke fase test.
 5. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**. Lengkapi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
 
 ## 7. Perbaikan mendesak di produksi
@@ -204,8 +205,8 @@ git push -u origin fix/login-terkunci-permanen
 ```
 
 1. Jalankan pemeriksaan lokal §4.2, buka PR ke `main`, beri tahu anggota lain, lalu merge.
-2. Jalankan CI dan Docker secara manual (§6.1), lalu periksa perbaikan di staging.
-3. Beri tag patch, misalnya `v1.0.1`, agar perbaikan ter-deploy ke produksi.
+2. Deploy ke fase test (§6.1) dan pastikan bug sudah hilang.
+3. Beri tag patch pada commit yang sama, misalnya `v1.0.1`, agar perbaikan ter-deploy ke fase utama (§6.2).
 
 ## 8. Pengaturan proteksi branch di GitHub
 
@@ -249,4 +250,5 @@ Bila terlanjur meng-commit rahasia, segera ganti kredensial tersebut. Menghapus 
 | Lihat status | `git status` dan `git log --oneline --graph -15` |
 | Batalkan perubahan file yang belum di-commit | `git restore <file>` |
 | Hapus branch lokal setelah merge | `git branch -d <branch>` |
-| Rilis inkremen | `git tag -a v0.N.0 -m "Inkremen N: ..."` lalu `git push origin v0.N.0` |
+| Deploy ke fase test | **Actions → Deploy → Run workflow** pada `main` |
+| Rilis ke fase utama | `git tag -a v0.N.0 -m "Inkremen N: ..."` lalu `git push origin v0.N.0` |

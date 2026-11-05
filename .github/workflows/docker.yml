@@ -1,12 +1,9 @@
 name: Docker
 
-# Sama seperti CI: hanya sebelum tahap uji (manual dari tab Actions)
-# dan saat tag rilis v* dibuat untuk deploy.
+# Dipanggil workflow Deploy sebelum fase test, atau dijalankan manual dari tab Actions.
 on:
   workflow_dispatch:
   workflow_call:
-  push:
-    tags: ['v*']
 
 concurrency:
   group: docker-${{ github.ref }}
