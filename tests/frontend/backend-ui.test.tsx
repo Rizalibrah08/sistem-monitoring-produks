@@ -449,6 +449,11 @@ const ticketListProps = {
     urls: { store: '/tickets', clients: '/clients' },
 };
 const ticketRoutes = { routes: { tickets: '/tickets' } };
+const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
+type ChecklistDocumentFixture = { id: number; name: string; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
+function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
+    return { scope: 'Tiket', requirement: 'Wajib', pic: 'R&D', both_phases: false, status: 'belum_ada', status_label: 'Belum ada', revision_reason: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: `/tickets/5/documents/${overrides.id}/versions`, current_version: null, ...overrides };
+}
 
 describe('tickets', () => {
     it('lists tickets with a link to their detail and hides creation from staff who cannot create', () => {
@@ -491,8 +496,8 @@ describe('tickets', () => {
                 ticket={{ id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' }}
                 checklist={[
                     { phase: 'pra_registrasi', label: 'Pra-registrasi', progress: 50, documents: [
-                        { id: 1, name: 'Master formula', scope: 'Tiket', requirement: 'Wajib', pic: 'R&D', both_phases: false, status: 'belum_ada', status_label: 'Belum ada' },
-                        { id: 2, name: 'Surat kuasa', scope: 'Klien', requirement: 'Wajib', pic: 'Klien', both_phases: true, status: 'disetujui', status_label: 'Disetujui' },
+                        checklistDocument({ id: 1, name: 'Master formula', pic: 'R&D' }),
+                        checklistDocument({ id: 2, name: 'Surat kuasa', scope: 'Klien', pic: 'Klien', both_phases: true, status: 'disetujui', status_label: 'Disetujui' }),
                     ] },
                     { phase: 'registrasi', label: 'Registrasi', progress: 0, documents: [] },
                 ]}
@@ -510,5 +515,54 @@ describe('tickets', () => {
         expect(screen.getByText('Belum ada dokumen di fase ini.')).toBeInTheDocument();
         expect(screen.getAllByText('Pengembangan sampel').length).toBeGreaterThan(0);
         expect(screen.getByText('Tiket dibuat')).toBeInTheDocument();
+    });
+});
+
+describe('ticket documents', () => {
+    it('shows the current version, the revision reason, and uploads a new version with its dates', async () => {
+        const user = userEvent.setup();
+        const requests: Array<{ url: string; data: Record<string, unknown> }> = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url: String(url), data: data as Record<string, unknown> });
+        });
+        renderPage(
+            <TicketShow
+                ticket={ticketDetail}
+                checklist={[{ phase: 'pra_registrasi', label: 'Pra-registrasi', progress: 0, documents: [
+                    checklistDocument({
+                        id: 7, name: 'CoA produk jadi', pic: 'QA/QC', status: 'perlu_revisi', status_label: 'Perlu revisi', can_upload: true, requires_issued_at: true,
+                        revision_reason: 'Umur dokumen melebihi 6 bulan sejak terbit (01/03/2026).',
+                        current_version: { version: 1, number: 'COA-9', original_name: 'coa.pdf', issued_at: '01/03/2026', expires_at: null, uploaded_at: '05/11/2026 10:00', download_url: '/document-versions/3/download' },
+                    }),
+                ] }]}
+                stages={[]}
+                history={[]}
+            />,
+            { ...ticketRoutes, auth: { user: { ...staff, role: 'qa', role_label: 'QA/QC' }, permissions: ['tickets.view'] } },
+        );
+
+        expect(screen.getByText('Umur dokumen melebihi 6 bulan sejak terbit (01/03/2026).')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Unduh v1 CoA produk jadi' })).toHaveAttribute('href', '/document-versions/3/download');
+
+        await user.click(screen.getByRole('button', { name: 'Unggah CoA produk jadi' }));
+        await user.upload(screen.getByLabelText('Berkas dokumen'), new File(['isi'], 'coa-baru.pdf', { type: 'application/pdf' }));
+        await user.type(screen.getByLabelText('Nomor dokumen'), 'COA-10');
+        await user.type(screen.getByLabelText('Tanggal terbit'), '2026-10-20');
+        expect(screen.queryByLabelText('Tanggal kedaluwarsa')).not.toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Unggah versi baru' }));
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0].url).toBe('/tickets/5/documents/7/versions');
+        expect(requests[0].data).toMatchObject({ number: 'COA-10', issued_at: '2026-10-20', expires_at: '' });
+        expect((requests[0].data.file as File).name).toBe('coa-baru.pdf');
+    });
+
+    it('hides the upload action from staff who are not the person in charge', () => {
+        renderPage(
+            <TicketShow ticket={ticketDetail} checklist={[{ phase: 'pra_registrasi', label: 'Pra-registrasi', progress: 0, documents: [checklistDocument({ id: 8, name: 'Master formula' })] }]} stages={[]} history={[]} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['tickets.view'] } },
+        );
+
+        expect(screen.queryByRole('button', { name: 'Unggah Master formula' })).not.toBeInTheDocument();
     });
 });

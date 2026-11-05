@@ -1,7 +1,8 @@
-import { Link, usePage } from '@inertiajs/react';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { Link, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeft, Download, FileText, Upload } from 'lucide-react';
+import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
-import { Badge, EmptyState, InfoBox, Panel, Progress } from '../../components/ui';
+import { Badge, Button, EmptyState, Field, InfoBox, Modal, Panel, Progress } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
 
 type TicketDetail = {
@@ -21,7 +22,23 @@ type TicketDetail = {
     created_by: string;
     created_at: string | null;
 };
-type ChecklistDocument = { id: number; name: string; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string };
+type DocumentVersion = { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string };
+type ChecklistDocument = {
+    id: number;
+    name: string;
+    scope: string;
+    requirement: string;
+    pic: string | null;
+    both_phases: boolean;
+    status: string;
+    status_label: string;
+    revision_reason: string | null;
+    requires_issued_at: boolean;
+    requires_expires_at: boolean;
+    can_upload: boolean;
+    upload_url: string;
+    current_version: DocumentVersion | null;
+};
 type ChecklistPhase = { phase: string; label: string; progress: number; documents: ChecklistDocument[] };
 type StageEntry = { name: string; started_at: string; due_at: string | null; finished_at: string | null };
 type HistoryEntry = { id: number; event: string; label: string; actor: string; created_at: string | null };
@@ -30,6 +47,7 @@ const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'b
 
 export default function TicketShow({ ticket, checklist, stages, history }: { ticket: TicketDetail; checklist: ChecklistPhase[]; stages: StageEntry[]; history: HistoryEntry[] }) {
     const { routes } = usePage<BackendSharedProps>().props;
+    const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
 
     return (
         <BackendLayout title={`${ticket.code} · ${ticket.product_name}`}>
@@ -65,11 +83,20 @@ export default function TicketShow({ ticket, checklist, stages, history }: { tic
                         <div className="panel-body"><Progress value={phase.progress} showLabel={false} /></div>
                         {phase.documents.length ? (
                             <div className="overflow-x-auto">
-                                <table className="w-full"><thead><tr><th>Dokumen</th><th>PIC</th><th>Status</th></tr></thead>
+                                <table className="w-full"><thead><tr><th>Dokumen</th><th>PIC</th><th>Status</th><th>Aksi</th></tr></thead>
                                     <tbody>{phase.documents.map((document) => <tr key={document.id}>
-                                        <td><strong>{document.name}</strong><div className="mt-1 flex flex-wrap gap-1"><Badge dot={false}>{document.requirement}</Badge><Badge dot={false}>{document.scope}</Badge>{document.both_phases && <Badge dot={false} tone="blue">Kedua fase</Badge>}</div></td>
+                                        <td>
+                                            <strong>{document.name}</strong>
+                                            <div className="mt-1 flex flex-wrap gap-1"><Badge dot={false}>{document.requirement}</Badge><Badge dot={false}>{document.scope}</Badge>{document.both_phases && <Badge dot={false} tone="blue">Kedua fase</Badge>}</div>
+                                            {document.current_version && <div className="mt-1 text-xs text-gray-500">v{document.current_version.version} · No. {document.current_version.number}{document.current_version.issued_at ? ` · terbit ${document.current_version.issued_at}` : ''}{document.current_version.expires_at ? ` · berlaku s.d. ${document.current_version.expires_at}` : ''}</div>}
+                                            {document.revision_reason && <p className="mt-1 text-xs text-red-700">{document.revision_reason}</p>}
+                                        </td>
                                         <td>{document.pic ?? '—'}</td>
                                         <td><Badge tone={statusTones[document.status]}>{document.status_label}</Badge></td>
+                                        <td><div className="flex gap-1">
+                                            {document.current_version && <a className="btn btn-ghost" href={document.current_version.download_url} aria-label={`Unduh v${document.current_version.version} ${document.name}`}><Download size={16} strokeWidth={1.8} />Unduh</a>}
+                                            {document.can_upload && <Button variant="ghost" icon={Upload} aria-label={`Unggah ${document.name}`} onClick={() => setUploading(document)}>Unggah</Button>}
+                                        </div></td>
                                     </tr>)}</tbody>
                                 </table>
                             </div>
@@ -77,7 +104,7 @@ export default function TicketShow({ ticket, checklist, stages, history }: { tic
                     </Panel>
                 ))}
             </div>
-            <div className="mt-5"><InfoBox>Unggah dan verifikasi dokumen akan tersedia pada tahap berikutnya. Dokumen yang berlaku untuk kedua fase cukup disiapkan sekali.</InfoBox></div>
+            <div className="mt-5"><InfoBox>Setiap unggahan menjadi versi baru dan langsung divalidasi otomatis. Dokumen yang gagal validasi dikembalikan dengan alasannya. Dokumen yang berlaku untuk kedua fase cukup disiapkan sekali.</InfoBox></div>
             <div className="mt-5">
                 <Panel title="Riwayat">
                     <ul className="panel-body space-y-2 text-sm">
@@ -85,6 +112,28 @@ export default function TicketShow({ ticket, checklist, stages, history }: { tic
                     </ul>
                 </Panel>
             </div>
+            {uploading && <DocumentUploader key={uploading.id} document={uploading} onClose={() => setUploading(null)} />}
         </BackendLayout>
+    );
+}
+
+function DocumentUploader({ document, onClose }: { document: ChecklistDocument; onClose: () => void }) {
+    const form = useForm<{ file: File | null; number: string; issued_at: string; expires_at: string }>({ file: null, number: '', issued_at: '', expires_at: '' });
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        form.post(document.upload_url, { preserveScroll: true, onSuccess: onClose });
+    }
+
+    return (
+        <Modal title={`Unggah ${document.name}`} description="PDF, JPG, PNG, DOCX, atau XLSX, maksimal 20 MB. Versi sebelumnya tetap tersimpan." onClose={onClose}>
+            <form onSubmit={submit} className="form-stack">
+                <Field label="Berkas dokumen" error={form.errors.file}><input type="file" accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx" onChange={(event) => form.setData('file', event.target.files?.[0] ?? null)} /></Field>
+                <Field label="Nomor dokumen" error={form.errors.number}><input required maxLength={100} value={form.data.number} onChange={(event) => form.setData('number', event.target.value)} /></Field>
+                <Field label="Tanggal terbit" error={form.errors.issued_at} hint={document.requires_issued_at ? 'Wajib: umur dokumen dibatasi.' : 'Opsional.'}><input type="date" required={document.requires_issued_at} value={form.data.issued_at} onChange={(event) => form.setData('issued_at', event.target.value)} /></Field>
+                {document.requires_expires_at && <Field label="Tanggal kedaluwarsa" error={form.errors.expires_at}><input type="date" required value={form.data.expires_at} onChange={(event) => form.setData('expires_at', event.target.value)} /></Field>}
+                <div className="form-footer"><Button variant="secondary" onClick={onClose} disabled={form.processing}>Batal</Button><Button type="submit" disabled={form.processing || form.data.file === null}>{form.processing ? 'Mengunggah...' : 'Unggah versi baru'}</Button></div>
+            </form>
+        </Modal>
     );
 }
