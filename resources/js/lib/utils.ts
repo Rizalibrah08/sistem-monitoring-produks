@@ -24,8 +24,8 @@ export const ticketStatus = (ticket: Ticket) =>
         ? 'Selesai'
         : ticket.late
           ? 'Terlambat'
-          : !ticket.dpPaid
-            ? 'Menunggu DP'
+          : !ticket.mouSigned
+            ? 'Menunggu MoU'
             : ticket.stage.includes('BPOM')
               ? 'Menunggu BPOM'
               : 'Tepat waktu';

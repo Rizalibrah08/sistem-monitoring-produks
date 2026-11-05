@@ -40,7 +40,7 @@ export function PrioritiesPage() {
             (ticket) =>
                 !ticket.closed &&
                 !ticket.submitted &&
-                (role !== 'ra' || ticket.dpPaid) &&
+                (role !== 'ra' || ticket.mouSigned) &&
                 (!phase || ticket.phase === phase) &&
                 `${ticket.id} ${ticket.product}`.toLowerCase().includes(search.toLowerCase()),
         )

@@ -565,7 +565,7 @@ export function VerificationPage({ quality = false }: { quality?: boolean }) {
     const { data } = usePreview();
     const [index, setIndex] = useState(0);
     const rows = data.tickets
-        .filter((item) => !item.closed && !item.submitted && item.dpPaid)
+        .filter((item) => !item.closed && !item.submitted && item.mouSigned)
         .flatMap((ticket) =>
             ticket.documents
                 .filter(

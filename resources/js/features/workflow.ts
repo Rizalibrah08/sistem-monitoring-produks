@@ -32,7 +32,7 @@ export function validateUpload(
 export function canSubmitTicket(ticket: Ticket): { allowed: boolean; reasons: string[] } {
     const reasons: string[] = [];
     if (ticket.closed) reasons.push('Tiket sudah ditutup.');
-    if (!ticket.dpPaid) reasons.push('Pembayaran DP belum diverifikasi lunas.');
+    if (!ticket.mouSigned) reasons.push('Kontrak (MoU) belum ditandatangani.');
     if (ticket.phase === 'Awal') reasons.push('Fase pra-registrasi belum dibuka.');
     if (ticket.submitted) reasons.push('Pengajuan fase ini sudah dicatat dan versi dokumen dikunci.');
     ticket.documents
@@ -81,6 +81,20 @@ export function activateContract(contract: Contract): Contract {
     return { ...contract, status: 'Aktif' };
 }
 
+export function openPreRegistration(ticket: Ticket, contract: Contract): Ticket {
+    if (contract.ticketId !== ticket.id) throw new Error('Kontrak tidak sesuai dengan tiket ini.');
+    if (contract.status !== 'Aktif')
+        throw new Error('Kontrak (MoU) bertanda tangan harus dikonfirmasi Marketing terlebih dahulu.');
+    if (ticket.phase !== 'Awal') return { ...ticket, mouSigned: true };
+    return {
+        ...ticket,
+        mouSigned: true,
+        phase: 'Pra-registrasi',
+        stage: 'Dokumen pra-registrasi',
+        revision: ticket.revision + 1,
+    };
+}
+
 export function verifyInvoice(invoice: Invoice, decision: 'approve' | 'reject', reason: string): Invoice {
     if (invoice.status === 'Lunas') return invoice;
     if (!invoice.proof) throw new Error('Bukti transfer belum diunggah.');
@@ -94,7 +108,7 @@ export function verifyInvoice(invoice: Invoice, decision: 'approve' | 'reject', 
 }
 
 export function openRegistration(ticket: Ticket): Ticket {
-    if (!ticket.dpPaid) throw new Error('DP belum diverifikasi lunas.');
+    if (!ticket.mouSigned) throw new Error('Kontrak (MoU) belum ditandatangani.');
     if (!ticket.preSubmitted || ticket.preResult !== 'approved')
         throw new Error('Hasil pra-registrasi harus tercatat dan disetujui sebelum registrasi dibuka.');
     if (

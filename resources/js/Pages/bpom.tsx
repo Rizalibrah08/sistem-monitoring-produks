@@ -80,7 +80,7 @@ export function BpomPage() {
             <div className="filter-bar">
                 <Select value={ticket.id} onChange={(event) => setId(event.target.value)}>
                     {data.tickets
-                        .filter((item) => !item.closed && item.dpPaid)
+                        .filter((item) => !item.closed && item.mouSigned)
                         .map((item) => (
                             <option value={item.id} key={item.id}>
                                 {item.product} · {item.id}
