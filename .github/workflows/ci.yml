@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Shell eksplisit mengaktifkan pipefail sehingga kegagalan sebelum `| tee` tetap menggagalkan langkah.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  backend:
+    name: Backend (${{ matrix.database }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        database: [sqlite, mysql]
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: aisha_monitor_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DB_CONNECTION: ${{ matrix.database }}
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: ${{ matrix.database == 'mysql' && 'aisha_monitor_test' || ':memory:' }}
+      DB_USERNAME: root
+      DB_PASSWORD: root
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, intl, bcmath, zip, pdo_sqlite, pdo_mysql
+          coverage: none
+          tools: composer:v2
+
+      - name: Lokasi cache Composer
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Pasang dependensi PHP
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Siapkan .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Periksa gaya kode (Pint)
+        if: matrix.database == 'sqlite'
+        run: vendor/bin/pint --test
+
+      - name: Uji migrasi dan rollback
+        if: matrix.database == 'mysql'
+        run: |
+          {
+            php artisan migrate --force --no-interaction
+            php artisan migrate:rollback --force --no-interaction
+            php artisan migrate --force --no-interaction
+          } 2>&1 | tee migrate-output.log
+
+      - name: Jalankan tes PHPUnit
+        run: php artisan test --compact 2>&1 | tee test-output.log
+
+      - name: Tampilkan galat sebagai anotasi
+        if: failure()
+        run: |
+          for file in migrate-output.log test-output.log; do
+            [ -f "$file" ] || continue
+            body=$(tail -c 6000 "$file" | sed -e 's/%/%25/g' -e 's/\r/%0D/g' | sed -e ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=${file}::${body}"
+          done
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Pasang dependensi Node
+        run: npm ci
+
+      - name: Periksa tipe (TypeScript)
+        run: npm run typecheck
+
+      - name: Jalankan tes Vitest
+        run: npm run test
+
+      - name: Build aset
+        run: npm run build
