@@ -27,6 +27,10 @@ class WorkspaceNavigation
             }
         }
 
+        if ($user->can('master.manage')) {
+            $items[] = ['id' => 'master', 'label' => 'Master data', 'href' => route('master.index', absolute: false), 'icon' => 'settings', 'group' => 'Administrasi', 'available' => true];
+        }
+
         if ($user->can('users.manage')) {
             $items[] = ['id' => 'users', 'label' => 'Pengguna dan role', 'href' => route('users.index', absolute: false), 'icon' => 'users', 'group' => 'Administrasi', 'available' => true];
         }

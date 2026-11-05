@@ -29,8 +29,9 @@ enum StaffRole: string
     public function permissions(): array
     {
         return match ($this) {
-            self::Admin => ['dashboard.view', 'users.manage', 'audit.view'],
+            self::Admin => ['dashboard.view', 'users.manage', 'audit.view', 'master.manage', 'materials.create'],
             self::Manager => ['dashboard.view', 'audit.view'],
+            self::Research => ['dashboard.view', 'materials.create'],
             default => ['dashboard.view'],
         };
     }

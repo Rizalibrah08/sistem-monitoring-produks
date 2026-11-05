@@ -72,6 +72,7 @@ class HandleInertiaRequests extends Middleware
                 'users' => route('users.index', absolute: false),
                 'usersStore' => route('users.store', absolute: false),
                 'audit' => route('audit.index', absolute: false),
+                'master' => route('master.index', absolute: false),
                 'notifications' => route('notifications.index', absolute: false),
             ],
             'workspace' => [

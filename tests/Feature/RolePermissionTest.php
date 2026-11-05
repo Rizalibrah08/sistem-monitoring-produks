@@ -27,12 +27,12 @@ class RolePermissionTest extends TestCase
         $this->seed();
 
         $this->assertDatabaseCount('roles', 7);
-        $this->assertDatabaseCount('permissions', 3);
+        $this->assertDatabaseCount('permissions', 5);
         $this->assertDatabaseCount('users', 0);
     }
 
     #[DataProvider('rolePermissions')]
-    public function test_role_permissions_match_the_foundation_access_matrix(string $role, bool $manageUsers, bool $viewAudit): void
+    public function test_role_permissions_match_the_foundation_access_matrix(string $role, bool $manageUsers, bool $viewAudit, bool $manageMasterData, bool $createMaterials): void
     {
         $this->seed();
         $user = User::factory()->create();
@@ -41,19 +41,21 @@ class RolePermissionTest extends TestCase
         $this->assertTrue(Gate::forUser($user)->allows('dashboard.view'));
         $this->assertSame($manageUsers, Gate::forUser($user)->allows('users.manage'));
         $this->assertSame($viewAudit, Gate::forUser($user)->allows('audit.view'));
+        $this->assertSame($manageMasterData, Gate::forUser($user)->allows('master.manage'));
+        $this->assertSame($createMaterials, Gate::forUser($user)->allows('materials.create'));
     }
 
-    /** @return array<string, array{string, bool, bool}> */
+    /** @return array<string, array{string, bool, bool, bool, bool}> */
     public static function rolePermissions(): array
     {
         return [
-            'admin' => ['admin', true, true],
-            'manager' => ['manager', false, true],
-            'marketing' => ['marketing', false, false],
-            'research' => ['rnd', false, false],
-            'quality' => ['qa', false, false],
-            'regulatory' => ['ra', false, false],
-            'finance' => ['finance', false, false],
+            'admin' => ['admin', true, true, true, true],
+            'manager' => ['manager', false, true, false, false],
+            'marketing' => ['marketing', false, false, false, false],
+            'research' => ['rnd', false, false, false, true],
+            'quality' => ['qa', false, false, false, false],
+            'regulatory' => ['ra', false, false, false, false],
+            'finance' => ['finance', false, false, false, false],
         ];
     }
 }
