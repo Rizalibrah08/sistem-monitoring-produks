@@ -7,6 +7,7 @@ import Login from '../../resources/js/Pages/Auth/Login';
 import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
+import Templates from '../../resources/js/Pages/Backend/Templates';
 import { BackendLayout } from '../../resources/js/layouts/backend-layout';
 
 function renderPage(children: ReactNode, overrides: Record<string, unknown> = {}) {
@@ -336,5 +337,68 @@ describe('document rules', () => {
 
         expect(screen.getByRole('button', { name: 'Tambah aturan' })).toBeDisabled();
         expect(screen.getByText(/belum ada jenis dokumen kondisional/i)).toBeInTheDocument();
+    });
+});
+
+const templateVariables = [{ name: 'nama_klien', description: 'Nama klien pemilik merek' }, { name: 'nomor_kontrak', description: 'Nomor kontrak (MoU)' }];
+const templateKinds = [{ value: 'kontrak', label: 'Kontrak' }, { value: 'tagihan', label: 'Tagihan' }];
+const contractTemplate = {
+    id: 1, name: 'Kontrak Maklon', kind: 'kontrak', kind_label: 'Kontrak', is_active: true, current_version: 2, upload_url: '/templates/1/versions',
+    versions: [
+        { id: 12, version: 2, original_name: 'kontrak-v2.docx', size: 20480, placeholders: ['nama_klien', 'nomor_kontrak'], notes: 'Tambah nomor kontrak', uploaded_by: 'Admin Aisha', uploaded_at: '05/11/2026 10:00', download_url: '/templates/versions/12/download' },
+        { id: 11, version: 1, original_name: 'kontrak.docx', size: 18432, placeholders: ['nama_klien'], notes: null, uploaded_by: 'Admin Aisha', uploaded_at: '01/11/2026 09:00', download_url: '/templates/versions/11/download' },
+    ],
+};
+
+describe('document templates', () => {
+    it('shows each template with its version history and the allowed variables', () => {
+        renderPage(<Templates templates={[contractTemplate]} kinds={templateKinds} variables={templateVariables} urls={{ store: '/templates' }} />, adminProps);
+
+        expect(screen.getByRole('heading', { name: 'Kontrak Maklon' })).toBeInTheDocument();
+        expect(screen.getByText('Versi 2')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Unduh versi 1' })).toHaveAttribute('href', '/templates/versions/11/download');
+        expect(screen.getByText('Tambah nomor kontrak')).toBeInTheDocument();
+        expect(screen.getAllByText('${nomor_kontrak}').length).toBeGreaterThan(0);
+        expect(screen.getByText('Nomor kontrak (MoU)')).toBeInTheDocument();
+    });
+
+    it('uploads a new template with its name, kind and Word file and shows the rejected placeholders', async () => {
+        const user = userEvent.setup();
+        const requests: Array<{ url: string; data: Record<string, unknown> }> = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data, options) => {
+            requests.push({ url: String(url), data: data as Record<string, unknown> });
+            options?.onError?.({ file: 'Penanda tidak dikenal: ${diskon}. Gunakan penanda dari daftar variabel yang diizinkan.' });
+        });
+        renderPage(<Templates templates={[]} kinds={templateKinds} variables={templateVariables} urls={{ store: '/templates' }} />, adminProps);
+
+        await user.click(screen.getByRole('button', { name: 'Unggah templat' }));
+        await user.type(screen.getByLabelText('Nama templat'), 'Tagihan termin');
+        await user.selectOptions(screen.getByLabelText('Jenis templat'), 'tagihan');
+        await user.upload(screen.getByLabelText('Berkas Word (.docx)'), new File(['isi'], 'tagihan.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+        await user.click(screen.getByRole('button', { name: 'Unggah' }));
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0].url).toBe('/templates');
+        expect(requests[0].data).toMatchObject({ name: 'Tagihan termin', kind: 'tagihan', notes: '' });
+        expect((requests[0].data.file as File).name).toBe('tagihan.docx');
+        expect(screen.getByRole('alert')).toHaveTextContent('Penanda tidak dikenal: ${diskon}');
+    });
+
+    it('uploads a new version of an existing template to its own address', async () => {
+        const user = userEvent.setup();
+        const requests: Array<{ url: string; data: Record<string, unknown> }> = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url: String(url), data: data as Record<string, unknown> });
+        });
+        renderPage(<Templates templates={[contractTemplate]} kinds={templateKinds} variables={templateVariables} urls={{ store: '/templates' }} />, adminProps);
+
+        await user.click(screen.getByRole('button', { name: 'Unggah versi baru Kontrak Maklon' }));
+        await user.upload(screen.getByLabelText('Berkas Word (.docx)'), new File(['isi'], 'kontrak-v3.docx'));
+        await user.type(screen.getByLabelText('Catatan perubahan'), 'Klausul pembayaran Midtrans');
+        await user.click(screen.getByRole('button', { name: 'Unggah' }));
+
+        expect(requests[0].url).toBe('/templates/1/versions');
+        expect(requests[0].data).toMatchObject({ notes: 'Klausul pembayaran Midtrans' });
+        expect(requests[0].data).not.toHaveProperty('name');
     });
 });

@@ -128,12 +128,6 @@ return [
             'description' => 'Tahapan internal yang melampaui SLA hari kerja.', 'empty_title' => 'Belum ada data eskalasi',
             'columns' => ['Tiket', 'Tahap', 'PIC', 'Tenggat', 'Status'],
         ],
-        'templates' => [
-            'title' => 'Templat dokumen', 'path' => '/templates', 'route' => 'templates.index', 'icon' => 'file', 'group' => 'Administrasi',
-            'roles' => ['admin'],
-            'description' => 'Templat Word berversi untuk kontrak, surat, dan tagihan.', 'empty_title' => 'Belum ada templat dokumen',
-            'columns' => ['Nama templat', 'Jenis dokumen', 'Versi', 'Diperbarui'], 'actions' => ['Unggah templat'],
-        ],
         'sync-checklist' => [
             'title' => 'Sinkronisasi checklist', 'path' => '/sync-checklist', 'route' => 'checklist_sync.index', 'icon' => 'clipboard', 'group' => 'Operasional',
             'roles' => ['ra'], 'navigation' => false,

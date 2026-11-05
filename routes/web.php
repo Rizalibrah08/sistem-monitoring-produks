@@ -6,6 +6,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CriterionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentRuleController;
+use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
@@ -50,6 +51,13 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::delete('/holidays/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
     });
     Route::post('/master/materials', [MaterialController::class, 'store'])->middleware('can:materials.create')->name('master.materials.store');
+
+    Route::middleware('can:master.manage')->group(function (): void {
+        Route::get('/templates', [DocumentTemplateController::class, 'index'])->name('templates.index');
+        Route::post('/templates', [DocumentTemplateController::class, 'store'])->name('templates.store');
+        Route::post('/templates/{documentTemplate}/versions', [DocumentTemplateController::class, 'storeVersion'])->name('templates.versions.store');
+        Route::get('/templates/versions/{templateVersion}/download', [DocumentTemplateController::class, 'download'])->name('templates.versions.download');
+    });
 
     Route::middleware('can:document_rules.manage')->group(function (): void {
         Route::get('/document-rules', [DocumentRuleController::class, 'index'])->name('document-rules.index');
