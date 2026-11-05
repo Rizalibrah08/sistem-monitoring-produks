@@ -2,12 +2,6 @@
 
 return [
     'modules' => [
-        'tickets' => [
-            'title' => 'Daftar tiket', 'path' => '/tickets', 'route' => 'tickets.index', 'icon' => 'ticket', 'group' => 'Ruang kerja',
-            'roles' => ['manager', 'marketing', 'rnd', 'qa', 'ra'],
-            'description' => 'Seluruh pendaftaran produk dalam satu tempat.', 'empty_title' => 'Belum ada tiket',
-            'columns' => ['Kode tiket', 'Produk', 'Klien', 'Fase', 'Tahap', 'Status'], 'actions' => ['Buat tiket'],
-        ],
         'priorities' => [
             'title' => 'Antrean prioritas', 'path' => '/priorities', 'route' => 'priorities.index', 'icon' => 'activity', 'group' => 'Ruang kerja',
             'roles' => ['manager', 'marketing', 'rnd', 'qa', 'ra'],

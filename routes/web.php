@@ -15,6 +15,7 @@ use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\StageController;
+use App\Http\Controllers\TicketController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceModuleController;
 use App\Http\Middleware\EnsureActiveStaffSession;
@@ -59,6 +60,12 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::post('/templates/{documentTemplate}/versions', [DocumentTemplateController::class, 'storeVersion'])->name('templates.versions.store');
         Route::get('/templates/versions/{templateVersion}/download', [DocumentTemplateController::class, 'download'])->name('templates.versions.download');
     });
+
+    Route::middleware('can:tickets.view')->group(function (): void {
+        Route::get('/tickets', [TicketController::class, 'index'])->name('tickets.index');
+        Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
+    });
+    Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
 
     Route::middleware('can:clients.manage')->group(function (): void {
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');

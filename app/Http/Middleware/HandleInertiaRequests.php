@@ -74,6 +74,8 @@ class HandleInertiaRequests extends Middleware
                 'audit' => route('audit.index', absolute: false),
                 'master' => route('master.index', absolute: false),
                 'documentRules' => route('document-rules.index', absolute: false),
+                'clients' => route('clients.index', absolute: false),
+                'tickets' => route('tickets.index', absolute: false),
                 'notifications' => route('notifications.index', absolute: false),
             ],
             'workspace' => [
