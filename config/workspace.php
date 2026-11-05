@@ -20,12 +20,6 @@ return [
             'description' => 'Dokumen yang perlu disiapkan, diperiksa, atau ditanggapi.', 'empty_title' => 'Belum ada tugas dokumen',
             'columns' => ['Tiket', 'Dokumen', 'Fase', 'Tenggat', 'Status'],
         ],
-        'clients' => [
-            'title' => 'Data klien', 'path' => '/clients', 'route' => 'clients.index', 'icon' => 'users', 'group' => 'Operasional',
-            'roles' => ['marketing'],
-            'description' => 'Data pemilik merek dan kontak penanggung jawab.', 'empty_title' => 'Belum ada klien',
-            'columns' => ['Nama klien', 'Perusahaan', 'PIC', 'WhatsApp', 'Email'], 'actions' => ['Tambah klien'],
-        ],
         'prospects' => [
             'title' => 'Prospek dari chatbot', 'label' => 'Prospek', 'path' => '/prospects', 'route' => 'prospects.index', 'icon' => 'sprout', 'group' => 'Operasional',
             'roles' => ['marketing'],

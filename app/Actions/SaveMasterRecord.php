@@ -13,19 +13,20 @@ class SaveMasterRecord
 
     /**
      * Simpan data master dan catat nilai sebelum dan sesudahnya di log audit (FR-59).
+     * $group menjadi awalan event, misalnya "master.category.updated" atau "client.created".
      *
      * @param  array<string, mixed>  $attributes
      */
-    public function handle(Model $record, string $entity, array $attributes, User $actor): Model
+    public function handle(Model $record, string $entity, array $attributes, User $actor, string $group = 'master'): Model
     {
-        return DB::transaction(function () use ($record, $entity, $attributes, $actor): Model {
+        return DB::transaction(function () use ($record, $entity, $attributes, $actor, $group): Model {
             $creating = ! $record->exists;
             $before = $creating ? [] : $record->only(array_keys($attributes));
 
             $record->fill($attributes)->save();
 
             $this->audit->record(
-                "master.{$entity}.".($creating ? 'created' : 'updated'),
+                implode('.', array_filter([$group, $entity, $creating ? 'created' : 'updated'])),
                 $record,
                 $before,
                 $record->only(array_keys($attributes)),

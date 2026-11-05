@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ClientController;
 use App\Http\Controllers\CriterionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentRuleController;
@@ -57,6 +58,12 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::post('/templates', [DocumentTemplateController::class, 'store'])->name('templates.store');
         Route::post('/templates/{documentTemplate}/versions', [DocumentTemplateController::class, 'storeVersion'])->name('templates.versions.store');
         Route::get('/templates/versions/{templateVersion}/download', [DocumentTemplateController::class, 'download'])->name('templates.versions.download');
+    });
+
+    Route::middleware('can:clients.manage')->group(function (): void {
+        Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
+        Route::post('/clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::put('/clients/{client}', [ClientController::class, 'update'])->name('clients.update');
     });
 
     Route::middleware('can:document_rules.manage')->group(function (): void {
