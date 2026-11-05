@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\User;
+
+class WorkspaceNavigation
+{
+    /** @return list<array{id: string, label: string, href: string, icon: string, group: string, available: bool}> */
+    public function forUser(User $user): array
+    {
+        $items = [[
+            'id' => 'dashboard', 'label' => 'Dasbor', 'href' => route('dashboard', absolute: false),
+            'icon' => 'dashboard', 'group' => 'Ruang kerja', 'available' => true,
+        ]];
+
+        foreach (config('workspace.modules', []) as $key => $module) {
+            if (($module['navigation'] ?? true) && $user->hasAnyRole($module['roles'])) {
+                $items[] = [
+                    'id' => $key,
+                    'label' => $module['label'] ?? $module['title'],
+                    'href' => route($module['route'], absolute: false),
+                    'icon' => $module['icon'],
+                    'group' => $module['group'],
+                    'available' => false,
+                ];
+            }
+        }
+
+        if ($user->can('users.manage')) {
+            $items[] = ['id' => 'users', 'label' => 'Pengguna dan role', 'href' => route('users.index', absolute: false), 'icon' => 'users', 'group' => 'Administrasi', 'available' => true];
+        }
+
+        if ($user->can('audit.view')) {
+            $items[] = ['id' => 'audit', 'label' => 'Log audit', 'href' => route('audit.index', absolute: false), 'icon' => 'shield', 'group' => 'Administrasi', 'available' => true];
+        }
+
+        return $items;
+    }
+}

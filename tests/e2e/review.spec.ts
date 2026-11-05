@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './preview-test';
 
 test('Marketing search and direct ticket navigation do not reveal another assigned client', async ({ page }) => {
     await page.goto('/?role=marketing');

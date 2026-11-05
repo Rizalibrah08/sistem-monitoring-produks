@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './preview-test';
 
 test('manager dashboard exposes tickets, review indicators and working navigation', async ({ page }) => {
     await page.goto('/');

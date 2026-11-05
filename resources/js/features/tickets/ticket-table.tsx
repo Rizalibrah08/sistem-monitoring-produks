@@ -1,4 +1,4 @@
-import { Link } from '@inertiajs/react';
+import { Link } from '../../lib/preview-navigation';
 import { ArrowUpRight, FlaskConical, Pill } from 'lucide-react';
 import { Avatar, Badge, EmptyState, Progress } from '../../components/ui';
 import { usePreview } from '../../mocks/preview-provider';

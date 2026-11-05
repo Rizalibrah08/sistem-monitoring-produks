@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router } from '../lib/preview-navigation';
 import {
     ArrowLeft,
     ArrowRight,

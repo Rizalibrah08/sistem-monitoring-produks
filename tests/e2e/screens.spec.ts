@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './preview-test';
 
 test('every feature group mounts its intended screen for the appropriate preview role', async ({ page }) => {
     const errors: string[] = [];

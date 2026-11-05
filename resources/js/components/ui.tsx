@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import { previewHref } from '../lib/preview-navigation';
 import {
     ArrowDown,
     ArrowRight,
@@ -69,7 +70,7 @@ export function LinkButton({
     secondary?: boolean;
 }) {
     return (
-        <Link href={href} preserveState className={`btn btn-${secondary ? 'secondary' : 'primary'}`}>
+        <Link href={uiHref(href)} preserveState className={`btn btn-${secondary ? 'secondary' : 'primary'}`}>
             {Icon && <Icon size={16} />}
             {children}
         </Link>
@@ -383,9 +384,13 @@ export function CheckLine({ children, checked = true }: { children: ReactNode; c
 }
 export function TextLink({ href, children }: { href: string; children: ReactNode }) {
     return (
-        <Link href={href} preserveState className="text-link">
+        <Link href={uiHref(href)} preserveState className="text-link">
             {children}
             <ArrowRight size={14} />
         </Link>
     );
+}
+
+function uiHref(href: string): string {
+    return typeof window !== 'undefined' && /^\/preview(?:\/|$)/.test(window.location.pathname) ? previewHref(href) : href;
 }
