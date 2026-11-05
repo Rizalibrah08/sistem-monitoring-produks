@@ -44,7 +44,44 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 
 Modul yang belum dibangun tetap tampil di menu sesuai role dengan keterangan "belum tersedia", tanpa data demo.
 
-## Menjalankan secara lokal
+## Demo lokal (Docker)
+
+Cara tercepat untuk demo: seluruh layanan berjalan di komputer sendiri dengan `compose.yaml` yang sama seperti di server, ditambah data contoh.
+
+1. Siapkan `.env` dari `.env.example`, lalu isi `APP_ENV=local`, `APP_KEY` (`base64:` diikuti hasil `openssl rand -base64 32`), `APP_URL=http://localhost:8080`, `HTTP_PORT=8080`, serta `DB_PASSWORD` dan `DB_ROOT_PASSWORD` acak.
+2. Nyalakan layanan, siapkan basis data, dan isi data demo:
+
+   ```sh
+   docker compose up -d --build --wait
+   docker compose exec app php artisan migrate --no-interaction
+   docker compose exec app php artisan db:seed --class=DemoSeeder --no-interaction
+   ```
+
+3. Buka `http://localhost:8080` dan masuk dengan salah satu akun berikut. Kata sandi semua akun: `AishaDemo2026`.
+
+   | Role | Email |
+   |---|---|
+   | Admin | `admin@aisha.test` |
+   | Marketing | `marketing@aisha.test` |
+   | R&D | `rnd@aisha.test` |
+   | QA/QC | `qa@aisha.test` |
+   | Regulatory Affairs | `ra@aisha.test` |
+   | Finance | `finance@aisha.test` |
+   | Manajer | `manajer@aisha.test` |
+
+Data demo berisi master data contoh, dua klien, dan tiga tiket yang checklist-nya tersusun otomatis. Salah satunya, Sirup Temulawak, memperlihatkan dokumen kondisional untuk sediaan cair. Seeder menolak berjalan di luar lingkungan `local` atau `testing`, sehingga tidak dapat terbawa ke server.
+
+Perintah berguna:
+
+```sh
+docker compose logs -f app          # melihat log aplikasi
+docker compose down                 # mematikan layanan (data tetap tersimpan)
+docker compose down -v              # mematikan layanan dan menghapus seluruh data demo
+```
+
+Setelah kode berubah, jalankan ulang `docker compose up -d --build --wait`.
+
+## Menjalankan secara lokal tanpa Docker
 
 ### Prasyarat
 
@@ -82,17 +119,6 @@ Modul yang belum dibangun tetap tampil di menu sesuai role dengan keterangan "be
    ```
 
    Buka `http://127.0.0.1:8000/login`. Untuk *hot reload*, jalankan `npm run dev` di terminal terpisah.
-
-### Dengan Docker Compose
-
-Seluruh layanan (aplikasi, Nginx, MySQL, Redis, queue, scheduler, Gotenberg) dapat dijalankan dengan `compose.yaml`. Isi `DB_PASSWORD`, `DB_ROOT_PASSWORD`, dan `HTTP_PORT` di `.env`, lalu:
-
-```sh
-docker compose up -d --build
-docker compose exec app php artisan migrate --force
-docker compose exec app php artisan db:seed --force
-docker compose exec app php artisan app:create-admin admin@perusahaan.test --name="Admin Aisha"
-```
 
 ## Pengujian
 
