@@ -64,7 +64,14 @@ jobs:
 
       - name: Log layanan
         if: failure()
-        run: docker compose logs --no-color --tail=200
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --tail=200
+          for service in app queue scheduler web mysql; do
+            body=$(docker compose logs --no-color --tail=40 "$service" 2>&1 | tail -c 4000 | sed -e 's/%/%25/g' -e 's//%0D/g' | sed -e ':a;N;$!ba;s/
+/%0A/g')
+            echo "::error title=log ${service}::${body}"
+          done
 
       - name: Bersihkan
         if: always()
