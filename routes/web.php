@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentRuleController;
 use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\DocumentTypeController;
+use App\Http\Controllers\DocumentVersionDownloadController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MasterDataController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\TicketController;
+use App\Http\Controllers\TicketDocumentVersionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceModuleController;
 use App\Http\Middleware\EnsureActiveStaffSession;
@@ -64,6 +66,8 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     Route::middleware('can:tickets.view')->group(function (): void {
         Route::get('/tickets', [TicketController::class, 'index'])->name('tickets.index');
         Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
+        Route::post('/tickets/{ticket}/documents/{ticketDocument}/versions', [TicketDocumentVersionController::class, 'store'])->name('tickets.documents.versions.store');
+        Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
 

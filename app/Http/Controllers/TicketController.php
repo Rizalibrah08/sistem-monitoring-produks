@@ -28,6 +28,7 @@ class TicketController extends Controller
     /** @var array<string, string> */
     private const EVENT_LABELS = [
         'ticket.created' => 'Tiket dibuat',
+        'document.uploaded' => 'Dokumen diunggah',
     ];
 
     public function index(Request $request): Response
@@ -97,8 +98,9 @@ class TicketController extends Controller
 
     public function show(Request $request, Ticket $ticket): Response
     {
-        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'stageLogs.stage']);
-        abort_unless($ticket->isVisibleTo($request->user()), 403);
+        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.document.currentVersion', 'stageLogs.stage']);
+        $user = $request->user();
+        abort_unless($ticket->isVisibleTo($user), 403);
 
         return Inertia::render('Backend/TicketShow', [
             'ticket' => [
@@ -134,6 +136,20 @@ class TicketController extends Controller
                         'both_phases' => $document->phase === StagePhase::BothPhases,
                         'status' => $document->status->value,
                         'status_label' => $document->status->label(),
+                        'revision_reason' => $document->revision_reason,
+                        'requires_issued_at' => $document->documentType->max_age_months !== null,
+                        'requires_expires_at' => $document->documentType->requires_expiry_date,
+                        'can_upload' => $document->canBeUploadedBy($user),
+                        'upload_url' => route('tickets.documents.versions.store', [$ticket, $document], absolute: false),
+                        'current_version' => ($version = $document->document?->currentVersion) === null ? null : [
+                            'version' => $version->version,
+                            'number' => $version->number,
+                            'original_name' => $version->original_name,
+                            'issued_at' => $version->issued_at?->format('d/m/Y'),
+                            'expires_at' => $version->expires_at?->format('d/m/Y'),
+                            'uploaded_at' => $version->created_at?->format('d/m/Y H:i'),
+                            'download_url' => route('document-versions.download', $version, absolute: false),
+                        ],
                     ])->values(),
             ]),
             'stages' => $ticket->stageLogs->sortBy('started_at')->map(fn (TicketStageLog $log): array => [
