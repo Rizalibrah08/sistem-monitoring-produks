@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import Login from '../../resources/js/Pages/Auth/Login';
 import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
+import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
 import { BackendLayout } from '../../resources/js/layouts/backend-layout';
 
@@ -243,5 +244,48 @@ describe('master data', () => {
             url: '/master/document-types',
             data: { name: 'Surat kuasa', phase: 'pra_registrasi', scope: 'klien', requirement: 'wajib', pic_role: 'client', verifier_role: '', requires_expiry_date: false, max_age_months: '', is_active: true },
         }]);
+    });
+});
+
+const regulatory = { ...staff, id: 4 };
+const ruleProps = { auth: { user: regulatory, permissions: ['dashboard.view', 'document_rules.manage'] }, routes: { documentRules: '/document-rules' } };
+const ruleOptions = { documentTypes: [{ value: 3, label: 'Uji cemaran mikroba' }], dosageForms: [{ value: 2, label: 'Sirup' }], categories: [{ value: 4, label: 'Jamu' }] };
+
+describe('document rules', () => {
+    it('lists rules with their scope and adds a rule that applies to every category of one dosage form', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <DocumentRules
+                rules={[{ id: 1, document_type_id: 3, document_type: 'Uji cemaran mikroba', dosage_form_id: 2, dosage_form: 'Sirup', category_id: null, category: null, effective_from: '2026-11-01', notes: null, is_active: true, update_url: '/document-rules/1' }]}
+                options={ruleOptions}
+                urls={{ store: '/document-rules' }}
+            />,
+            ruleProps,
+        );
+
+        expect(screen.getByRole('cell', { name: 'Semua kategori' })).toBeInTheDocument();
+        expect(screen.getByText('01/11/2026')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Tambah aturan' }));
+        await user.selectOptions(screen.getByLabelText('Sediaan'), '2');
+        await user.type(screen.getByLabelText('Berlaku mulai'), '2026-12-01');
+        await user.type(screen.getByLabelText('Catatan'), 'Wajib untuk sirup.');
+        await user.click(screen.getByRole('button', { name: 'Simpan' }));
+
+        expect(requests).toEqual([{
+            url: '/document-rules',
+            data: { document_type_id: '3', dosage_form_id: '2', category_id: '', effective_from: '2026-12-01', notes: 'Wajib untuk sirup.', is_active: true },
+        }]);
+    });
+
+    it('explains that conditional document types are needed before a rule can be added', () => {
+        renderPage(<DocumentRules rules={[]} options={{ ...ruleOptions, documentTypes: [] }} urls={{ store: '/document-rules' }} />, ruleProps);
+
+        expect(screen.getByRole('button', { name: 'Tambah aturan' })).toBeDisabled();
+        expect(screen.getByText(/belum ada jenis dokumen kondisional/i)).toBeInTheDocument();
     });
 });

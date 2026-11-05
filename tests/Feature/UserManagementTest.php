@@ -44,7 +44,7 @@ class UserManagementTest extends TestCase
             ->missing('users.data.0.password')
             ->missing('users.data.0.remember_token')
             ->has('roles', 7)
-            ->has('navigation', 5));
+            ->has('navigation', 6));
     }
 
     public function test_admin_can_create_an_active_staff_account_with_one_role_and_an_audit_entry(): void

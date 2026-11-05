@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentRuleController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
@@ -46,6 +47,12 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::delete('/holidays/{holiday}', [HolidayController::class, 'destroy'])->name('holidays.destroy');
     });
     Route::post('/master/materials', [MaterialController::class, 'store'])->middleware('can:materials.create')->name('master.materials.store');
+
+    Route::middleware('can:document_rules.manage')->group(function (): void {
+        Route::get('/document-rules', [DocumentRuleController::class, 'index'])->name('document-rules.index');
+        Route::post('/document-rules', [DocumentRuleController::class, 'store'])->name('document-rules.store');
+        Route::put('/document-rules/{documentRule}', [DocumentRuleController::class, 'update'])->name('document-rules.update');
+    });
 
     foreach (config('workspace.modules', []) as $module => $configuration) {
         Route::get($configuration['path'], WorkspaceModuleController::class)
