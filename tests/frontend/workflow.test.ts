@@ -4,6 +4,7 @@ import {
     activateContract,
     canSubmitTicket,
     closeTicketWithNie,
+    openPreRegistration,
     reviewDocument,
     validateUpload,
     verifyInvoice,
@@ -110,17 +111,64 @@ describe('contract, payment and phase guards', () => {
             /disetujui/i,
         );
     });
-    it('opens registration with a paid DP and accepted recorded pre-registration result', () => {
+    it('opens registration with a signed MoU and accepted pre-registration result even when DP is unpaid', () => {
         const ticket = createFixtures().tickets[0];
         expect(
             openRegistration({
                 ...ticket,
                 phase: 'Pra-registrasi',
-                dpPaid: true,
+                mouSigned: true,
+                dpPaid: false,
                 preSubmitted: true,
                 preResult: 'approved',
             }).phase,
         ).toBe('Registrasi');
+    });
+    it('keeps registration closed while the MoU is not signed', () => {
+        const ticket = createFixtures().tickets[0];
+        expect(() =>
+            openRegistration({
+                ...ticket,
+                phase: 'Pra-registrasi',
+                mouSigned: false,
+                preSubmitted: true,
+                preResult: 'approved',
+            }),
+        ).toThrow(/MoU/);
+    });
+    it('blocks submission until the MoU is signed', () => {
+        const ticket = createFixtures().tickets[0];
+        const result = canSubmitTicket({ ...ticket, mouSigned: false });
+        expect(result.allowed).toBe(false);
+        expect(result.reasons.join(' ')).toMatch(/MoU/);
+    });
+    it('does not block submission because the DP invoice is still unpaid', () => {
+        const ticket = createFixtures().tickets[0];
+        const documents = ticket.documents.map((doc) => ({
+            ...doc,
+            status: 'Disetujui' as const,
+            validation: 'Lolos' as const,
+            qaApproved: true,
+        }));
+        const result = canSubmitTicket({ ...ticket, mouSigned: true, dpPaid: false, documents });
+        expect(result).toEqual({ allowed: true, reasons: [] });
+    });
+    it('opens pre-registration once Marketing confirms the signed MoU, regardless of DP', () => {
+        const state = createFixtures();
+        const ticket = state.tickets.find((item) => item.id === 'PRD-2026-0025')!;
+        const contract = { ...state.contracts.find((item) => item.ticketId === ticket.id)!, status: 'Aktif' as const };
+        const result = openPreRegistration({ ...ticket, dpPaid: false }, contract);
+        expect(result).toMatchObject({ mouSigned: true, phase: 'Pra-registrasi', stage: 'Dokumen pra-registrasi' });
+        expect(result.dpPaid).toBe(false);
+    });
+    it('does not open pre-registration from a contract that is unconfirmed or belongs to another ticket', () => {
+        const state = createFixtures();
+        const ticket = state.tickets.find((item) => item.id === 'PRD-2026-0025')!;
+        const contract = state.contracts.find((item) => item.ticketId === ticket.id)!;
+        expect(() => openPreRegistration(ticket, { ...contract, status: 'Ditandatangani' })).toThrow(/dikonfirmasi/i);
+        expect(() => openPreRegistration(ticket, { ...contract, status: 'Aktif', ticketId: 'PRD-2026-0012' })).toThrow(
+            /tiket/i,
+        );
     });
     it('keeps registration blocked while a required pre-registration document needs revision', () => {
         const ticket = createFixtures().tickets[0];
@@ -151,16 +199,27 @@ describe('contract, payment and phase guards', () => {
 });
 
 describe('demo workflow consistency', () => {
-    it('provides an active contract for every ticket that has a verified DP', () => {
+    it('provides an active contract for every ticket with a signed MoU', () => {
         const state = createFixtures();
         const missing = state.tickets.filter(
             (ticket) =>
-                ticket.dpPaid &&
+                ticket.mouSigned &&
                 !state.contracts.some((contract) => contract.ticketId === ticket.id && contract.status === 'Aktif'),
         );
         expect(missing.map((ticket) => ticket.id)).toEqual([]);
     });
-    it('provides a paid DP invoice for every ticket beyond the payment gate', () => {
+    it('keeps every ticket without a signed MoU in the initial phase', () => {
+        const state = createFixtures();
+        const leaked = state.tickets.filter((ticket) => !ticket.mouSigned && ticket.phase !== 'Awal');
+        expect(leaked.map((ticket) => ticket.id)).toEqual([]);
+    });
+    it('demonstrates a ticket progressing in pre-registration while its DP is still unpaid', () => {
+        const state = createFixtures();
+        expect(
+            state.tickets.some((ticket) => ticket.mouSigned && !ticket.dpPaid && ticket.phase === 'Pra-registrasi'),
+        ).toBe(true);
+    });
+    it('provides a paid DP invoice for every ticket whose DP is marked paid', () => {
         const state = createFixtures();
         const missing = state.tickets.filter(
             (ticket) =>

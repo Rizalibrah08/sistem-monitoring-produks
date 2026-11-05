@@ -71,7 +71,7 @@ export function DashboardPage() {
     ];
     const stages = [
         'Pengembangan sampel',
-        'Kontrak dan DP',
+        'Kontrak (MoU)',
         'Dokumen pra-registrasi',
         'Verifikasi pra-registrasi',
         'Dokumen registrasi',

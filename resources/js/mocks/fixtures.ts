@@ -161,6 +161,7 @@ function ticket(id: string, product: string, clientId: string, overrides: Partia
         late: false,
         needsReview: false,
         closed: false,
+        mouSigned: true,
         dpPaid: true,
         sampleApproved: true,
         submitted: false,
@@ -208,8 +209,8 @@ export function createFixtures(): DemoState {
         }),
         ticket('0021', 'Serbuk kunyit asam', 'c4', {
             form: 'Serbuk',
-            phase: 'Awal',
-            stage: 'Kontrak dan DP',
+            phase: 'Pra-registrasi',
+            stage: 'Dokumen pra-registrasi',
             dpPaid: false,
             preSubmitted: false,
             preResult: 'none',
@@ -249,6 +250,7 @@ export function createFixtures(): DemoState {
             phase: 'Awal',
             stage: 'Pengembangan sampel',
             sampleApproved: false,
+            mouSigned: false,
             dpPaid: false,
             preSubmitted: false,
             preResult: 'none',
@@ -257,6 +259,7 @@ export function createFixtures(): DemoState {
             phase: 'Awal',
             stage: 'Pengembangan sampel',
             sampleApproved: false,
+            mouSigned: false,
             dpPaid: false,
             preSubmitted: false,
             preResult: 'none',
@@ -264,8 +267,9 @@ export function createFixtures(): DemoState {
         ticket('0020', 'Serbuk secang', 'c3', {
             form: 'Serbuk',
             phase: 'Awal',
-            stage: 'Kontrak dan DP',
+            stage: 'Kontrak (MoU)',
             sampleApproved: true,
+            mouSigned: false,
             dpPaid: false,
             preSubmitted: false,
             preResult: 'none',
@@ -280,7 +284,8 @@ export function createFixtures(): DemoState {
         ticket('0025', 'Serbuk jahe botanika', 'c5', {
             form: 'Serbuk',
             phase: 'Awal',
-            stage: 'Kontrak dan DP',
+            stage: 'Kontrak (MoU)',
+            mouSigned: false,
             dpPaid: false,
             preSubmitted: false,
             preResult: 'none',
@@ -732,11 +737,11 @@ export function createFixtures(): DemoState {
             },
             {
                 id: 'a3',
-                time: '05/10/2026 08.40',
+                time: '01/10/2026 10.15',
                 actor: 'Sistem',
                 action: 'Buka fase',
                 object: DEMO_TICKET,
-                change: 'Kontrak dan DP → Pra-registrasi',
+                change: 'Kontrak (MoU) ditandatangani → Pra-registrasi',
                 source: 'Sistem',
             },
             {
@@ -792,7 +797,7 @@ export function createFixtures(): DemoState {
             },
         ],
     };
-    for (const item of state.tickets.filter((entry) => entry.dpPaid)) {
+    for (const item of state.tickets.filter((entry) => entry.mouSigned)) {
         if (!state.contracts.some((contract) => contract.ticketId === item.id)) {
             state.contracts.push({
                 id: `KTR/2026/${item.id.slice(-4)}`,
@@ -805,7 +810,10 @@ export function createFixtures(): DemoState {
                 dueDays: 7,
             });
         }
-        if (!state.invoices.some((invoice) => invoice.ticketId === item.id && invoice.term.startsWith('DP'))) {
+        if (
+            item.dpPaid &&
+            !state.invoices.some((invoice) => invoice.ticketId === item.id && invoice.term.startsWith('DP'))
+        ) {
             const contract = state.contracts.find((entry) => entry.ticketId === item.id)!;
             state.invoices.push({
                 id: `INV-${String(40 + state.invoices.length).padStart(4, '0')}`,

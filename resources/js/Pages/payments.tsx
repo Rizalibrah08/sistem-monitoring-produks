@@ -38,7 +38,7 @@ import {
     StatCard,
 } from '../components/ui';
 import { usePreview } from '../mocks/preview-provider';
-import { activateContract, verifyInvoice } from '../features/workflow';
+import { activateContract, openPreRegistration, verifyInvoice } from '../features/workflow';
 import { currency, dateLabel, downloadCsv, shortMoney } from '../lib/utils';
 import { DEMO_TICKET } from '../mocks/fixtures';
 import type { Contract, Invoice, Ticket } from '../types';
@@ -116,7 +116,7 @@ export function TicketPayments({ ticket }: { ticket: Ticket }) {
                 <InvoiceTable invoices={invoices} />
             </Panel>
             <InfoBox>
-                DP terverifikasi lunas membuka fase pra-registrasi. Tagihan pelunasan diterbitkan ketika NIE dicatat.
+                Kontrak (MoU) yang ditandatangani dan dikonfirmasi Marketing membuka fase pra-registrasi. Tagihan DP tetap diingatkan, tetapi tidak menahan proses. Tagihan pelunasan diterbitkan ketika NIE dicatat.
             </InfoBox>
             {preview && contract && (
                 <Modal
@@ -255,7 +255,7 @@ export function SamplesPage() {
                                         (item) => ({
                                             ...item,
                                             sampleApproved: true,
-                                            stage: 'Kontrak dan DP',
+                                            stage: 'Kontrak (MoU)',
                                             sampleHistory: [
                                                 ...revisions,
                                                 { note: note || 'Sampel disetujui klien.', result: 'Disetujui' },
@@ -306,6 +306,9 @@ export function ContractsPage() {
                 (state) => ({
                     ...state,
                     contracts: state.contracts.map((item) => (item.id === next.id ? next : item)),
+                    tickets: state.tickets.map((item) =>
+                        item.id === next.ticketId ? openPreRegistration(item, next) : item,
+                    ),
                     invoices: state.invoices.some(
                         (item) => item.ticketId === next.ticketId && item.term.startsWith('DP'),
                     )
@@ -325,7 +328,7 @@ export function ContractsPage() {
                               },
                           ],
                 }),
-                'Kontrak aktif dan tagihan DP dibuat pada demo.',
+                'Kontrak aktif, fase pra-registrasi dibuka, dan tagihan DP dibuat pada demo.',
             )
         )
             setSelected(null);
@@ -824,12 +827,7 @@ export function PaymentReview({
                         invoices: state.invoices.map((item) => (item.id === invoice.id ? next : item)),
                         tickets: state.tickets.map((item) =>
                             item.id === invoice.ticketId && invoice.term.startsWith('DP') && decision === 'approve'
-                                ? {
-                                      ...item,
-                                      dpPaid: true,
-                                      phase: item.phase === 'Awal' ? 'Pra-registrasi' : item.phase,
-                                      stage: item.phase === 'Awal' ? 'Dokumen pra-registrasi' : item.stage,
-                                  }
+                                ? { ...item, dpPaid: true }
                                 : item,
                         ),
                     }),

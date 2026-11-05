@@ -48,10 +48,10 @@ test('Marketing can create a ticket from validated product fields', async ({ pag
     await page.getByLabel('Kategori', { exact: true }).selectOption({ label: 'Jamu' });
     await page.getByRole('button', { name: 'Simpan tiket', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Kapsul sehat pengujian', exact: true })).toBeVisible();
-    await expect(page.getByText('Menunggu DP', { exact: true })).toBeVisible();
+    await expect(page.getByText('Menunggu MoU', { exact: true })).toBeVisible();
 });
 
-test('Finance verifies a proof and opens the paid ticket phase in the demo', async ({ page }) => {
+test('Finance verifies a DP proof while the signed-MoU ticket already runs pre-registration', async ({ page }) => {
     await page.goto('/payments?role=finance');
     await page.getByRole('button', { name: 'Periksa pembayaran INV-0033' }).click();
     await page.getByRole('button', { name: 'Konfirmasi lunas', exact: true }).click();

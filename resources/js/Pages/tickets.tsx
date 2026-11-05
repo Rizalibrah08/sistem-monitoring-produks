@@ -132,7 +132,7 @@ export function TicketsPage() {
                         aria-label="Filter status"
                     >
                         <option value="">Semua status</option>
-                        {['Tepat waktu', 'Terlambat', 'Menunggu DP', 'Menunggu BPOM', 'Perlu ditinjau', 'Selesai'].map(
+                        {['Tepat waktu', 'Terlambat', 'Menunggu MoU', 'Menunggu BPOM', 'Perlu ditinjau', 'Selesai'].map(
                             (item) => (
                                 <option key={item}>{item}</option>
                             ),
@@ -218,6 +218,7 @@ export function CreateTicketPage() {
             closed: false,
             late: false,
             needsReview: false,
+            mouSigned: false,
             dpPaid: false,
             sampleApproved: false,
             submitted: false,
@@ -564,7 +565,7 @@ export function TicketDetailPage({ id }: { id?: string | null }) {
                             <tbody>
                                 {[
                                     'Pengembangan sampel',
-                                    'Kontrak dan DP',
+                                    'Kontrak (MoU)',
                                     'Dokumen pra-registrasi',
                                     'Verifikasi pra-registrasi',
                                     'Menunggu hasil BPOM',

@@ -43,6 +43,7 @@ export type Ticket = {
     late: boolean;
     needsReview: boolean;
     closed: boolean;
+    mouSigned: boolean;
     dpPaid: boolean;
     sampleApproved: boolean;
     submitted: boolean;
