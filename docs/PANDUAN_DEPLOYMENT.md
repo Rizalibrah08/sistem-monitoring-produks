@@ -24,6 +24,18 @@ Fase utama hanya menerima image yang sebelumnya sudah dibuat untuk fase test. Bi
 
 Jalankan sebagai pengguna dengan `sudo`. Docker Engine dan Docker Compose sudah terpasang (PRD §8).
 
+### Cara cepat: skrip persiapan
+
+Setelah record DNS (§1.1) dibuat, satu skrip mengerjakan §1.2 sampai §1.4 sekaligus: pengguna `deploy`, folder `/opt/aisha`, kunci SSH GitHub Actions, berkas `.env` kedua fase dengan rahasia acak yang berbeda, dan Caddy. Skrip aman dijalankan ulang; berkas yang sudah ada tidak ditimpa.
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/Rizalibrah08/sistem-monitoring-produks/main/docker/deploy/setup-server.sh
+sudo bash setup-server.sh --test-domain test.domain-anda --prod-domain domain-anda \
+     --email email-anda@domain-anda --public-ip <IP VPS>
+```
+
+Di akhir, skrip mencetak nilai `DEPLOY_HOST`, `DEPLOY_USER`, dan `DEPLOY_KNOWN_HOSTS` untuk §2.1, serta cara menampilkan `DEPLOY_SSH_KEY`. Setelah kunci privat tersimpan di GitHub, hapus dari server dengan `sudo rm /root/aisha-deploy-key /root/aisha-deploy-key.pub`. Langkah manual §1.2 sampai §1.4 di bawah ini hanya diperlukan bila tidak memakai skrip.
+
 ### 1.1 DNS
 
 Di pengelola domain, buat dua record `A` yang mengarah ke IP publik VPS:
