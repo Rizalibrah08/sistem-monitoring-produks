@@ -78,8 +78,14 @@ describe('backend workspace', () => {
 });
 
 const admin = { ...staff, id: 9, name: 'Admin Aisha', role: 'admin', role_label: 'Admin' };
-const masterUrls = { dosageForms: '/master/dosage-forms', categories: '/master/categories', materials: '/master/materials', holidays: '/master/holidays' };
-const masterProps = { dosageForms: [], categories: [], materials: [], holidays: [], urls: masterUrls };
+const masterUrls = { dosageForms: '/master/dosage-forms', categories: '/master/categories', materials: '/master/materials', stages: '/master/stages', holidays: '/master/holidays' };
+const phases = [
+    { value: 'awal', label: 'Awal' },
+    { value: 'pra_registrasi', label: 'Pra-registrasi' },
+    { value: 'registrasi', label: 'Registrasi' },
+    { value: 'kedua_fase', label: 'Kedua fase' },
+];
+const masterProps = { dosageForms: [], categories: [], materials: [], stages: [], phases, holidays: [], urls: masterUrls };
 const adminProps = { auth: { user: admin, permissions: ['dashboard.view', 'master.manage'] }, routes: { master: '/master' } };
 
 describe('master data', () => {
@@ -162,5 +168,39 @@ describe('master data', () => {
         await user.click(screen.getByRole('button', { name: 'Hapus Hari Raya Natal' }));
         expect(confirm).toHaveBeenCalledTimes(2);
         expect(deletions).toEqual(['/master/holidays/3']);
+    });
+
+    it('shows stage SLA and clears it when a stage is changed to wait for an external party', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'put').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <Master
+                {...masterProps}
+                tab="stages"
+                stages={[
+                    { id: 1, code: 'perbaikan_dokumen', name: 'Perbaikan dokumen', phase: 'kedua_fase', phase_label: 'Kedua fase', sort_order: 12, sla_days: 5, waits_for_external: false, is_active: true, update_url: '/master/stages/1' },
+                    { id: 2, code: 'menunggu_bpom_registrasi', name: 'Menunggu hasil BPOM registrasi', phase: 'registrasi', phase_label: 'Registrasi', sort_order: 9, sla_days: null, waits_for_external: true, is_active: true, update_url: '/master/stages/2' },
+                ]}
+            />,
+            adminProps,
+        );
+
+        expect(screen.getByText('5 hari kerja')).toBeInTheDocument();
+        expect(screen.getByText('Menunggu pihak luar')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Ubah Perbaikan dokumen' }));
+        expect(screen.getByLabelText('SLA (hari kerja)')).toHaveValue(5);
+
+        await user.click(screen.getByLabelText('Menunggu BPOM atau pihak luar'));
+        expect(screen.getByLabelText('SLA (hari kerja)')).toBeDisabled();
+        await user.click(screen.getByRole('button', { name: 'Simpan' }));
+
+        expect(requests).toEqual([{
+            url: '/master/stages/1',
+            data: { name: 'Perbaikan dokumen', phase: 'kedua_fase', sort_order: '12', sla_days: '', waits_for_external: true, is_active: true },
+        }]);
     });
 });
