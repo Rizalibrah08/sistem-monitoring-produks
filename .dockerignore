@@ -1,0 +1,35 @@
+.git
+.github
+.agents
+.claude
+.superpowers
+.env
+.env.*
+!.env.example
+
+node_modules
+vendor
+public/build
+public/hot
+public/storage
+
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*.php
+bootstrap/cache/*.php
+
+tests
+playwright.config.ts
+vitest.config.ts
+test-results
+playwright-report
+
+docs
+Aisha Monitor - Wireframe dan UI UX.figcraft
+Wireframe Sistem Monitoring Pendaftaran Produk (1)
+*.md
+
+compose.yaml
+Dockerfile
+docker/**/*.md

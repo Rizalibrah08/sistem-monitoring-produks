@@ -1,0 +1,71 @@
+name: Docker
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - docker/**
+      - composer.lock
+      - package-lock.json
+      - .github/workflows/docker.yml
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Build dan uji asap Compose
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Siapkan .env uji
+        run: |
+          cp .env.example .env
+          sed -i \
+            -e "s|^APP_ENV=.*|APP_ENV=staging|" \
+            -e "s|^APP_DEBUG=.*|APP_DEBUG=false|" \
+            -e "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32)|" \
+            -e "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -hex 16)|" \
+            -e "s|^DB_ROOT_PASSWORD=.*|DB_ROOT_PASSWORD=$(openssl rand -hex 16)|" \
+            -e "s|^HTTP_PORT=.*|HTTP_PORT=8080|" \
+            .env
+
+      - name: Validasi compose.yaml
+        run: docker compose config --quiet
+
+      - name: Build image
+        run: docker compose build
+
+      - name: Jalankan layanan
+        run: docker compose up -d --wait --wait-timeout 180
+
+      - name: Migrasi basis data
+        run: docker compose exec -T app php artisan migrate --force --no-interaction
+
+      - name: Periksa aplikasi
+        run: |
+          curl -fsS http://127.0.0.1:8080/up > /dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/login)" = "200"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/dashboard)" = "302"
+          docker compose exec -T app php artisan queue:monitor redis:default
+
+      - name: Log layanan
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+
+      - name: Bersihkan
+        if: always()
+        run: docker compose down -v
