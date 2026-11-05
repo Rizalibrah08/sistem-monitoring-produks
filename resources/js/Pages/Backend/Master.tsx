@@ -1,28 +1,32 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { CalendarDays, FlaskConical, Pencil, Plus, Tags, Trash2 } from 'lucide-react';
+import { CalendarDays, FlaskConical, ListOrdered, Pencil, Plus, Tags, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
-import { Badge, Button, EmptyState, Field, InfoBox, Modal, PageHeader, Panel } from '../../components/ui';
+import { Badge, Button, EmptyState, Field, InfoBox, Modal, PageHeader, Panel, Select } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
 
-type MasterTab = 'forms' | 'ingredients' | 'holidays';
+type MasterTab = 'forms' | 'ingredients' | 'stages' | 'holidays';
 type NamedItem = { id: number; name: string; is_active: boolean; update_url: string };
 type MaterialItem = NamedItem & { supplier: string | null };
+type StageItem = NamedItem & { code: string; phase: string; phase_label: string; sort_order: number; sla_days: number | null; waits_for_external: boolean };
+type PhaseOption = { value: string; label: string };
 type HolidayItem = { id: number; date: string; name: string; update_url: string; delete_url: string };
-type MasterUrls = { dosageForms: string; categories: string; materials: string; holidays: string };
+type MasterUrls = { dosageForms: string; categories: string; materials: string; stages: string; holidays: string };
 type NamedKind = { title: string; noun: string; storeUrl: string };
 type Editor =
     | { kind: 'named'; list: NamedKind; item: NamedItem | null }
     | { kind: 'material'; item: MaterialItem | null }
+    | { kind: 'stage'; item: StageItem | null }
     | { kind: 'holiday'; item: HolidayItem | null };
 
 const tabs: Array<[MasterTab, string]> = [
     ['forms', 'Sediaan & kategori'],
     ['ingredients', 'Bahan baku'],
+    ['stages', 'Tahapan & SLA'],
     ['holidays', 'Hari libur'],
 ];
 
-export default function Master({ tab, dosageForms, categories, materials, holidays, urls }: { tab: MasterTab; dosageForms: NamedItem[]; categories: NamedItem[]; materials: MaterialItem[]; holidays: HolidayItem[]; urls: MasterUrls }) {
+export default function Master({ tab, dosageForms, categories, materials, stages, phases, holidays, urls }: { tab: MasterTab; dosageForms: NamedItem[]; categories: NamedItem[]; materials: MaterialItem[]; stages: StageItem[]; phases: PhaseOption[]; holidays: HolidayItem[]; urls: MasterUrls }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [activeTab, setActiveTab] = useState<MasterTab>(tab);
     const [editor, setEditor] = useState<Editor | null>(null);
@@ -66,6 +70,28 @@ export default function Master({ tab, dosageForms, categories, materials, holida
                     ) : <EmptyState title="Belum ada bahan baku" description="Tambahkan bahan baku yang dipakai dalam produk klien." icon={FlaskConical} />}
                 </Panel>
             )}
+            {activeTab === 'stages' && (
+                <>
+                    <Panel title="Tahapan & SLA" description="Urutan proses pendaftaran dan batas waktu tiap tahap dalam hari kerja." action={<Button variant="secondary" icon={Plus} onClick={() => setEditor({ kind: 'stage', item: null })}>Tambah tahap</Button>}>
+                        {stages.length ? (
+                            <div className="overflow-x-auto">
+                                <table className="w-full"><thead><tr><th>Urutan</th><th>Tahap</th><th>Fase</th><th>SLA</th><th>Jenis</th><th>Status</th><th>Aksi</th></tr></thead>
+                                    <tbody>{stages.map((stage) => <tr key={stage.id}>
+                                        <td>{stage.sort_order}</td>
+                                        <td><strong>{stage.name}</strong><div className="text-xs text-gray-500">{stage.code}</div></td>
+                                        <td>{stage.phase_label}</td>
+                                        <td>{stage.sla_days === null ? '—' : `${stage.sla_days} hari kerja`}</td>
+                                        <td>{stage.waits_for_external ? <Badge tone="amber">Menunggu pihak luar</Badge> : 'Internal'}</td>
+                                        <td><StatusBadge active={stage.is_active} /></td>
+                                        <td><Button variant="ghost" icon={Pencil} aria-label={`Ubah ${stage.name}`} onClick={() => setEditor({ kind: 'stage', item: stage })}>Ubah</Button></td>
+                                    </tr>)}</tbody>
+                                </table>
+                            </div>
+                        ) : <EmptyState title="Belum ada tahapan" description="Tahapan bawaan dibuat saat aplikasi dipasang." icon={ListOrdered} />}
+                    </Panel>
+                    <div className="mt-5"><InfoBox>SLA dihitung dalam hari kerja dan berhenti selama tahap menunggu BPOM atau pihak luar. Kode tahap tetap walaupun nama diubah, karena dipakai alur tiket.</InfoBox></div>
+                </>
+            )}
             {activeTab === 'holidays' && (
                 <>
                     <Panel title="Hari libur" description="Libur nasional dan cuti bersama yang tidak dihitung sebagai hari kerja." action={<Button variant="secondary" icon={Plus} onClick={() => setEditor({ kind: 'holiday', item: null })}>Tambah hari libur</Button>}>
@@ -89,6 +115,7 @@ export default function Master({ tab, dosageForms, categories, materials, holida
             )}
             {editor?.kind === 'named' && <NamedEditor key={editor.item?.id ?? 'new'} list={editor.list} item={editor.item} onClose={() => setEditor(null)} />}
             {editor?.kind === 'material' && <MaterialEditor key={editor.item?.id ?? 'new'} item={editor.item} storeUrl={urls.materials} onClose={() => setEditor(null)} />}
+            {editor?.kind === 'stage' && <StageEditor key={editor.item?.id ?? 'new'} item={editor.item} phases={phases} nextOrder={Math.max(0, ...stages.map((stage) => stage.sort_order)) + 1} storeUrl={urls.stages} onClose={() => setEditor(null)} />}
             {editor?.kind === 'holiday' && <HolidayEditor key={editor.item?.id ?? 'new'} item={editor.item} storeUrl={urls.holidays} onClose={() => setEditor(null)} />}
         </BackendLayout>
     );
@@ -146,6 +173,41 @@ function MaterialEditor({ item, storeUrl, onClose }: { item: MaterialItem | null
             <form onSubmit={submit} className="form-stack">
                 <Field label="Nama bahan baku" error={form.errors.name}><input autoFocus required maxLength={150} value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
                 <Field label="Pemasok" error={form.errors.supplier} hint="Opsional."><input maxLength={150} value={form.data.supplier} onChange={(event) => form.setData('supplier', event.target.value)} /></Field>
+                {item && <ActiveToggle checked={form.data.is_active} error={form.errors.is_active} onChange={(checked) => form.setData('is_active', checked)} />}
+                <EditorFooter processing={form.processing} onClose={onClose} />
+            </form>
+        </Modal>
+    );
+}
+
+function StageEditor({ item, phases, nextOrder, storeUrl, onClose }: { item: StageItem | null; phases: PhaseOption[]; nextOrder: number; storeUrl: string; onClose: () => void }) {
+    const form = useForm({
+        name: item?.name ?? '',
+        phase: item?.phase ?? phases[0]?.value ?? '',
+        sort_order: String(item?.sort_order ?? nextOrder),
+        sla_days: item?.sla_days === null || item?.sla_days === undefined ? '' : String(item.sla_days),
+        waits_for_external: item?.waits_for_external ?? false,
+        is_active: item?.is_active ?? true,
+    });
+
+    function setWaiting(waiting: boolean) {
+        form.setData((data) => ({ ...data, waits_for_external: waiting, sla_days: waiting ? '' : data.sla_days }));
+    }
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        if (item) form.put(item.update_url, { preserveScroll: true, onSuccess: onClose });
+        else form.post(storeUrl, { preserveScroll: true, onSuccess: onClose });
+    }
+
+    return (
+        <Modal title={item ? 'Ubah tahap' : 'Tambah tahap'} description={item ? `Kode tahap: ${item.code}` : 'Kode tahap dibuat dari nama dan tidak berubah setelah disimpan.'} onClose={onClose}>
+            <form onSubmit={submit} className="form-stack">
+                <Field label="Nama tahap" error={form.errors.name}><input autoFocus required maxLength={100} value={form.data.name} onChange={(event) => form.setData('name', event.target.value)} /></Field>
+                <Field label="Fase" error={form.errors.phase}><Select value={form.data.phase} onChange={(event) => form.setData('phase', event.target.value)}>{phases.map((phase) => <option key={phase.value} value={phase.value}>{phase.label}</option>)}</Select></Field>
+                <Field label="Urutan" error={form.errors.sort_order}><input type="number" required min={1} max={999} value={form.data.sort_order} onChange={(event) => form.setData('sort_order', event.target.value)} /></Field>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={form.data.waits_for_external} onChange={(event) => setWaiting(event.target.checked)} />Menunggu BPOM atau pihak luar</label>
+                <Field label="SLA (hari kerja)" error={form.errors.sla_days} hint={form.data.waits_for_external ? 'Tidak dipakai: perhitungan SLA berhenti selama menunggu pihak luar.' : undefined}><input type="number" min={1} max={365} required={!form.data.waits_for_external} disabled={form.data.waits_for_external} value={form.data.sla_days} onChange={(event) => form.setData('sla_days', event.target.value)} /></Field>
                 {item && <ActiveToggle checked={form.data.is_active} error={form.errors.is_active} onChange={(checked) => form.setData('is_active', checked)} />}
                 <EditorFooter processing={form.processing} onClose={onClose} />
             </form>

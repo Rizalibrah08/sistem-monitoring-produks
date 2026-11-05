@@ -43,8 +43,10 @@ ls -1t backups/sebelum-deploy-*.sql.gz | tail -n +11 | xargs -r rm --
 echo "==> Menjalankan migrasi"
 compose run --rm --no-deps app php artisan migrate --force --no-interaction
 
-echo "==> Menyelaraskan role dan hak akses"
-compose run --rm --no-deps app php artisan db:seed --class=RolesAndPermissionsSeeder --force --no-interaction
+# Seeder idempoten: menyelaraskan role dan hak akses, lalu menambah data master
+# bawaan yang belum ada tanpa menimpa perubahan Admin.
+echo "==> Menyelaraskan role, hak akses, dan data master bawaan"
+compose run --rm --no-deps app php artisan db:seed --force --no-interaction
 
 echo "==> Mengganti container aplikasi"
 compose up -d --no-build --wait --wait-timeout 180 --remove-orphans
