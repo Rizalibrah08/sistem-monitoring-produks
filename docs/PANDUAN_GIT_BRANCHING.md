@@ -1,20 +1,21 @@
 # Panduan Git Branching — Aisha Monitor
 
-Panduan ini mengatur cara tim (Rizal sebagai Web Developer, Adit sebagai System Analyst/DevOps/QA) bekerja di repository `Rizalibrah08/sistem-monitoring-produks`. Modelnya **trunk-based**: hanya satu branch permanen, yaitu `main`. Setiap pekerjaan dikerjakan di branch pendek lalu digabung ke `main` lewat Pull Request yang wajib lulus CI. Rilis setiap inkremen PRD v1.3 §8 ditandai dengan tag.
+Panduan ini mengatur cara tim (Rizal sebagai Web Developer, Adit sebagai System Analyst/DevOps/QA) bekerja di repository `Rizalibrah08/sistem-monitoring-produks`. Modelnya **trunk-based**: hanya satu branch permanen, yaitu `main`. Setiap pekerjaan dikerjakan di branch pendek lalu digabung ke `main` lewat Pull Request. CI tidak berjalan di setiap PR; CI dijalankan saat masuk tahap uji dan saat deploy (lihat §6). Rilis setiap inkremen PRD v1.3 §8 ditandai dengan tag.
 
 ```
 feature/...    ●─●     ●─●─●        ●─●
               /   \   /     \      /   \
-main  ●──────●─────●─●───────●────●─────●──────►   setiap merge → staging
+main  ●──────●─────●─●───────●────●─────●──────►
                    │                    │
-                 v0.1.0               v0.2.0        setiap tag → produksi
+               uji: CI → staging    uji: CI → staging
+                 v0.1.0               v0.2.0        tag: CI → produksi
 ```
 
 ## 1. Branch `main`
 
 | Branch | Fungsi | Deploy ke | Cara perubahan masuk |
 |---|---|---|---|
-| `main` | Satu-satunya sumber kebenaran; selalu dalam keadaan lulus CI | Staging pada setiap merge; produksi pada setiap tag rilis | Lewat Pull Request, keempat pemeriksaan CI wajib hijau; pembuat PR boleh merge sendiri |
+| `main` | Satu-satunya sumber kebenaran | Staging saat tahap uji dimulai; produksi pada setiap tag rilis | Lewat Pull Request; pembuat PR boleh merge sendiri setelah pemeriksaan lokal lulus |
 
 Aturan `main`:
 
@@ -80,7 +81,7 @@ git push -u origin feature/inc2-F03-buat-tiket-checklist   # push pertama
 git push                                                     # push berikutnya
 ```
 
-Setiap push ke branch apa pun menjalankan CI, sehingga kesalahan sudah terlihat sebelum PR dibuka. Pemeriksaan lokal sebelum push tetap dianjurkan:
+CI tidak berjalan saat push maupun saat PR. Karena itu, **pemeriksaan lokal berikut wajib dijalankan sebelum membuka PR**. Inilah satu-satunya penjaga sebelum perubahan masuk `main`:
 
 ```sh
 vendor/bin/pint --dirty --format agent
@@ -106,10 +107,9 @@ git push --force-with-lease        # aman: hanya untuk branch milik sendiri
 1. Buka GitHub, lalu klik **Compare & pull request**. Base: `main`; compare: branch Anda.
 2. Judul PR mengikuti format commit, misalnya `feat(tiket): buat tiket dan checklist dua fase (F03)`.
 3. Isi template PR, termasuk checklist Definition of Done.
-4. Tunggu semua pemeriksaan CI hijau: `Backend (sqlite)`, `Backend (mysql)`, `Frontend`, dan `Build dan uji asap Compose`. Bila merah, buka tab **Checks** atau **Files changed**; cuplikan galat tampil sebagai anotasi.
+4. Pastikan pemeriksaan lokal §4.2 lulus, lalu centang butir terkait di template PR.
 5. Merge dengan **Squash and merge**. Pembuat PR boleh merge sendiri tanpa menunggu review; tim berdua cukup saling memberi tahu lewat komentar PR atau chat. Review tetap dianjurkan untuk perubahan besar, seperti skema basis data, perhitungan TOPSIS, atau alur gerbang fase.
-6. Setelah merge, perubahan otomatis ter-deploy ke staging. Periksa staging sebelum melanjutkan.
-7. Hapus branch setelah merge (otomatis bila pengaturan §8 aktif), lalu bersihkan lokal:
+6. Hapus branch setelah merge (otomatis bila pengaturan §8 aktif), lalu bersihkan lokal:
 
 ```sh
 git switch main
@@ -155,11 +155,29 @@ docs(srs): perbarui daftar pustaka ke PHPUnit
 
 Karena PR digabung dengan squash, judul PR menjadi pesan commit di `main`. Pastikan judul PR mengikuti format di atas. Hindari pesan seperti `update`, `fix`, `wip`, atau `perbaikan`. Riwayat commit adalah bagian dari bukti pengerjaan tugas akhir.
 
-## 6. Rilis per inkremen
+## 6. Uji dan rilis per inkremen
+
+CI hanya berjalan di dua titik berikut. Hasilnya terlihat di tab **Actions**; bila ada job yang merah, cuplikan galatnya tampil sebagai anotasi pada halaman run tersebut.
+
+| Workflow | Isi | Perkiraan waktu |
+|---|---|---|
+| **CI** | `Backend (sqlite)`, `Backend (mysql)`, `Frontend` | ± 3 menit |
+| **Docker** | `Build dan uji asap Compose` | ± 8 menit |
+
+### 6.1 Masuk tahap uji
+
+Dilakukan saat fitur inkremen sudah masuk `main` dan siap diuji black box atau didemokan:
+
+1. Buka tab **Actions**, pilih workflow **CI**, klik **Run workflow**, pilih branch `main`, lalu **Run workflow**.
+2. Lakukan hal yang sama untuk workflow **Docker**.
+3. Bila keduanya hijau, perbarui server staging dan lanjutkan uji black box atau demo.
+4. Bila ada yang merah, perbaiki lewat branch `fix/...`, merge, lalu jalankan ulang langkah 1–2.
+
+### 6.2 Rilis dan deploy produksi
 
 Dilakukan Adit setelah semua butir Definition of Done inkremen terpenuhi (PRD §8):
 
-1. Pastikan commit terakhir di `main` lulus CI dan sudah didemokan di staging.
+1. Pastikan uji di staging (§6.1) sudah selesai untuk commit terakhir di `main`.
 2. Beri tahu anggota lain bahwa inkremen akan dirilis. Tag menjadi bukti rilis dan memicu deployment produksi.
 3. Buat tag beranotasi pada `main`:
 
@@ -170,7 +188,8 @@ git tag -a v0.2.0 -m "Inkremen 2: tiket, dokumen, validasi"
 git push origin v0.2.0
 ```
 
-4. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**. Lengkapi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
+4. Push tag otomatis menjalankan workflow **CI** dan **Docker**. Deployment produksi hanya boleh dilakukan bila keduanya hijau untuk tag tersebut.
+5. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**. Lengkapi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
 
 ## 7. Perbaikan mendesak di produksi
 
@@ -184,19 +203,19 @@ git switch -c fix/login-terkunci-permanen
 git push -u origin fix/login-terkunci-permanen
 ```
 
-1. Buka PR ke `main`, tunggu CI hijau, beri tahu anggota lain, lalu merge.
-2. Periksa perbaikan di staging.
+1. Jalankan pemeriksaan lokal §4.2, buka PR ke `main`, beri tahu anggota lain, lalu merge.
+2. Jalankan CI dan Docker secara manual (§6.1), lalu periksa perbaikan di staging.
 3. Beri tag patch, misalnya `v1.0.1`, agar perbaikan ter-deploy ke produksi.
 
 ## 8. Pengaturan proteksi branch di GitHub
 
-Karena `main` langsung dipakai untuk staging, proteksi ini **wajib** aktif. Dilakukan sekali oleh anggota yang memiliki akses admin repository.
+Karena CI tidak memeriksa setiap PR, proteksi ini menjadi pengaman agar `main` tidak berubah tanpa PR. Dilakukan sekali oleh anggota yang memiliki akses admin repository.
 
 Buka **Settings → Rules → Rulesets → New branch ruleset**, beri nama `main`, pilih target **Include default branch**, lalu aktifkan:
 
 - **Restrict deletions**.
-- **Require a pull request before merging**, dengan **Required approvals: 0**. Tim berdua dapat merge sendiri; yang dijaga adalah CI, bukan persetujuan.
-- **Require status checks to pass**, lalu tambahkan `Backend (sqlite)`, `Backend (mysql)`, `Frontend`, dan `Build dan uji asap Compose`. Nama job bisa dipilih setelah workflow pernah berjalan sekali.
+- **Require a pull request before merging**, dengan **Required approvals: 0**. Tim berdua dapat merge sendiri.
+- Jangan aktifkan **Require status checks to pass**. CI tidak berjalan di PR, sehingga PR akan tertahan menunggu selamanya.
 - **Block force pushes**.
 - **Require linear history**.
 

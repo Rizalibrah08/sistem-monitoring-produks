@@ -1,15 +1,16 @@
 name: CI
 
+# CI hanya berjalan sebelum tahap uji (dijalankan manual dari tab Actions)
+# dan saat tag rilis v* dibuat untuk deploy, sesuai keputusan tim.
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: ['**']
   workflow_dispatch:
+  workflow_call:
+  push:
+    tags: ['v*']
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read

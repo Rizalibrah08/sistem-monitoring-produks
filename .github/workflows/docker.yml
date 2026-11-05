@@ -1,23 +1,16 @@
 name: Docker
 
+# Sama seperti CI: hanya sebelum tahap uji (manual dari tab Actions)
+# dan saat tag rilis v* dibuat untuk deploy.
 on:
-  push:
-    branches: ['**']
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - compose.yaml
-      - docker/**
-      - composer.lock
-      - package-lock.json
-      - .github/workflows/docker.yml
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+  workflow_call:
+  push:
+    tags: ['v*']
 
 concurrency:
   group: docker-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
