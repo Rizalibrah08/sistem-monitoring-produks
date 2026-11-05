@@ -1,30 +1,16 @@
 name: Docker
 
-# Uji Docker lebih lama, jadi hanya berjalan saat berkas yang memengaruhi image berubah
-# dan pada tag rilis v* (filter path tidak berlaku untuk tag) sebelum deploy produksi.
+# Sama seperti CI: hanya sebelum tahap uji (manual dari tab Actions)
+# dan saat tag rilis v* dibuat untuk deploy.
 on:
-  pull_request:
-    branches: [main]
-    paths: &docker-paths
-      - Dockerfile
-      - .dockerignore
-      - compose.yaml
-      - docker/**
-      - composer.json
-      - composer.lock
-      - package.json
-      - package-lock.json
-      - .github/workflows/docker.yml
-  push:
-    branches: [main]
-    tags: ['v*']
-    paths: *docker-paths
   workflow_dispatch:
   workflow_call:
+  push:
+    tags: ['v*']
 
 concurrency:
   group: docker-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 permissions:
   contents: read

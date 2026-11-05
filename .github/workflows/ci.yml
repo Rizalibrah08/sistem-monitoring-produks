@@ -1,15 +1,16 @@
 name: CI
 
+# CI hanya berjalan sebelum tahap uji (dijalankan manual dari tab Actions)
+# dan saat tag rilis v* dibuat untuk deploy, sesuai keputusan tim.
 on:
-  pull_request:
-    branches: [main]
-  push:
-    branches: [main]
   workflow_dispatch:
+  workflow_call:
+  push:
+    tags: ['v*']
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -20,44 +21,8 @@ defaults:
     shell: bash
 
 jobs:
-  changes:
-    name: Deteksi perubahan
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      code: ${{ steps.filter.outputs.code }}
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      # Perubahan yang hanya menyentuh docs/ atau berkas Markdown tidak perlu menjalankan tes.
-      - name: Periksa apakah ada perubahan kode
-        id: filter
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ] || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          changed=$(git diff --name-only "${BASE_SHA}...${HEAD_SHA}")
-          printf 'Berkas berubah:\n%s\n' "$changed"
-
-          if [ -z "$changed" ] || grep -qvE '^docs/|\.md$' <<< "$changed"; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "code=false" >> "$GITHUB_OUTPUT"
-          fi
-
   backend:
     name: Backend (${{ matrix.database }})
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -143,8 +108,6 @@ jobs:
 
   frontend:
     name: Frontend
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
 
@@ -167,23 +130,3 @@ jobs:
 
       - name: Build aset
         run: npm run build
-
-  # Satu-satunya status check wajib di ruleset main. Tetap berjalan saat tes dilewati
-  # agar PR yang hanya mengubah dokumentasi tidak tertahan.
-  result:
-    name: CI selesai
-    needs: [changes, backend, frontend]
-    if: always()
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-
-    steps:
-      - name: Periksa hasil semua job
-        env:
-          FAILED: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
-        run: |
-          echo "changes=${{ needs.changes.result }} backend=${{ needs.backend.result }} frontend=${{ needs.frontend.result }}"
-          if [ "$FAILED" = true ]; then
-            echo "::error::Ada pemeriksaan CI yang gagal atau dibatalkan."
-            exit 1
-          fi
