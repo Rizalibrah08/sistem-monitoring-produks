@@ -1,0 +1,17 @@
+{
+	email {$ACME_EMAIL}
+}
+
+# Fase test: untuk uji black box dan demo, tidak diindeks mesin pencari.
+{$TEST_DOMAIN} {
+	encode zstd gzip
+	header X-Robots-Tag "noindex, nofollow"
+	reverse_proxy aisha-test-web:80
+}
+
+# Fase utama: hanya menerima image yang sudah lolos fase test.
+{$PROD_DOMAIN} {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy aisha-prod-web:80
+}

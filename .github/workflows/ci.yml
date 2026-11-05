@@ -1,12 +1,10 @@
 name: CI
 
-# CI hanya berjalan sebelum tahap uji (dijalankan manual dari tab Actions)
-# dan saat tag rilis v* dibuat untuk deploy, sesuai keputusan tim.
+# CI hanya berjalan saat deploy (dipanggil workflow Deploy untuk fase test dan
+# fase utama) atau bila dijalankan manual dari tab Actions, sesuai keputusan tim.
 on:
   workflow_dispatch:
   workflow_call:
-  push:
-    tags: ['v*']
 
 concurrency:
   group: ci-${{ github.ref }}

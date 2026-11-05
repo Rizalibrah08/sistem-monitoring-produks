@@ -1,0 +1,29 @@
+# Pintu masuk HTTPS bersama untuk fase test dan fase utama di satu VPS.
+# Caddy memperoleh sertifikat Let's Encrypt otomatis (NFR-04) dan meneruskan
+# permintaan ke Nginx tiap stack melalui jaringan aisha-edge.
+
+name: aisha-edge
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    env_file: .env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - edge
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  edge:
+    name: aisha-edge

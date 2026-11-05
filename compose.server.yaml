@@ -1,0 +1,37 @@
+# Override untuk VPS, dipakai bersama compose.yaml oleh docker/deploy/remote-deploy.sh.
+# Image diambil dari GHCR, dan Nginx tidak membuka port host: Caddy di jaringan
+# aisha-edge meneruskan HTTPS ke alias EDGE_ALIAS. Nilai dibaca dari .env stack.
+
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE belum diatur di .env}:${APP_IMAGE_TAG:?APP_IMAGE_TAG belum diatur}
+
+  queue:
+    image: ${APP_IMAGE:?APP_IMAGE belum diatur di .env}:${APP_IMAGE_TAG:?APP_IMAGE_TAG belum diatur}
+
+  scheduler:
+    image: ${APP_IMAGE:?APP_IMAGE belum diatur di .env}:${APP_IMAGE_TAG:?APP_IMAGE_TAG belum diatur}
+
+  web:
+    image: ${WEB_IMAGE:?WEB_IMAGE belum diatur di .env}:${APP_IMAGE_TAG:?APP_IMAGE_TAG belum diatur}
+    ports: !reset []
+    networks:
+      internal: {}
+      edge:
+        aliases:
+          - ${EDGE_ALIAS:?EDGE_ALIAS belum diatur di .env}
+
+  # Dua stack berbagi RAM 4 GB, jadi MySQL dibuat hemat memori.
+  mysql:
+    command:
+      - --log-bin-trust-function-creators=1
+      - --performance-schema=OFF
+      - --innodb-buffer-pool-size=${MYSQL_BUFFER_POOL_SIZE:-256M}
+
+  gotenberg:
+    mem_limit: 512m
+
+networks:
+  edge:
+    external: true
+    name: aisha-edge
