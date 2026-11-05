@@ -1,23 +1,30 @@
 name: Docker
 
+# Uji Docker lebih lama, jadi hanya berjalan saat berkas yang memengaruhi image berubah
+# dan pada tag rilis v* (filter path tidak berlaku untuk tag) sebelum deploy produksi.
 on:
-  push:
-    branches: ['**']
-    paths:
+  pull_request:
+    branches: [main]
+    paths: &docker-paths
       - Dockerfile
       - .dockerignore
       - compose.yaml
       - docker/**
+      - composer.json
       - composer.lock
+      - package.json
       - package-lock.json
       - .github/workflows/docker.yml
-  pull_request:
+  push:
     branches: [main]
+    tags: ['v*']
+    paths: *docker-paths
   workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: docker-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

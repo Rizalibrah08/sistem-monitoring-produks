@@ -80,7 +80,7 @@ git push -u origin feature/inc2-F03-buat-tiket-checklist   # push pertama
 git push                                                     # push berikutnya
 ```
 
-Setiap push ke branch apa pun menjalankan CI, sehingga kesalahan sudah terlihat sebelum PR dibuka. Pemeriksaan lokal sebelum push tetap dianjurkan:
+CI berjalan saat PR ke `main` dibuka atau diperbarui, bukan pada setiap push ke branch kerja. Bila ingin diperiksa CI sebelum pekerjaan selesai, buka PR lebih awal sebagai **Draft pull request**; setiap push berikutnya akan diperiksa ulang. Pemeriksaan lokal sebelum push tetap dianjurkan:
 
 ```sh
 vendor/bin/pint --dirty --format agent
@@ -106,7 +106,15 @@ git push --force-with-lease        # aman: hanya untuk branch milik sendiri
 1. Buka GitHub, lalu klik **Compare & pull request**. Base: `main`; compare: branch Anda.
 2. Judul PR mengikuti format commit, misalnya `feat(tiket): buat tiket dan checklist dua fase (F03)`.
 3. Isi template PR, termasuk checklist Definition of Done.
-4. Tunggu semua pemeriksaan CI hijau: `Backend (sqlite)`, `Backend (mysql)`, `Frontend`, dan `Build dan uji asap Compose`. Bila merah, buka tab **Checks** atau **Files changed**; cuplikan galat tampil sebagai anotasi.
+4. Tunggu pemeriksaan **CI selesai** hijau. Pemeriksaan ini merangkum job yang berjalan:
+
+   | Perubahan di PR | Job yang berjalan | Perkiraan waktu |
+   |---|---|---|
+   | Hanya `docs/` atau berkas `*.md` | Tes dilewati | < 1 menit |
+   | Kode aplikasi | `Backend (sqlite)`, `Backend (mysql)`, `Frontend` | ± 3 menit |
+   | Docker, `composer.*`, `package*.json`, atau workflow Docker | Ditambah `Build dan uji asap Compose` | ± 8 menit |
+
+   Bila merah, buka tab **Checks** atau **Files changed**; cuplikan galat tampil sebagai anotasi.
 5. Merge dengan **Squash and merge**. Pembuat PR boleh merge sendiri tanpa menunggu review; tim berdua cukup saling memberi tahu lewat komentar PR atau chat. Review tetap dianjurkan untuk perubahan besar, seperti skema basis data, perhitungan TOPSIS, atau alur gerbang fase.
 6. Setelah merge, perubahan otomatis ter-deploy ke staging. Periksa staging sebelum melanjutkan.
 7. Hapus branch setelah merge (otomatis bila pengaturan §8 aktif), lalu bersihkan lokal:
@@ -170,7 +178,8 @@ git tag -a v0.2.0 -m "Inkremen 2: tiket, dokumen, validasi"
 git push origin v0.2.0
 ```
 
-4. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**. Lengkapi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
+4. Push tag menjalankan uji asap Docker lengkap di tab **Actions**. Pastikan workflow **Docker** untuk tag tersebut hijau sebelum deployment produksi.
+5. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**. Lengkapi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
 
 ## 7. Perbaikan mendesak di produksi
 
@@ -196,7 +205,7 @@ Buka **Settings → Rules → Rulesets → New branch ruleset**, beri nama `main
 
 - **Restrict deletions**.
 - **Require a pull request before merging**, dengan **Required approvals: 0**. Tim berdua dapat merge sendiri; yang dijaga adalah CI, bukan persetujuan.
-- **Require status checks to pass**, lalu tambahkan `Backend (sqlite)`, `Backend (mysql)`, `Frontend`, dan `Build dan uji asap Compose`. Nama job bisa dipilih setelah workflow pernah berjalan sekali.
+- **Require status checks to pass**, lalu tambahkan hanya `CI selesai`. Nama ini bisa dipilih setelah workflow CI pernah berjalan sekali. Jangan menambahkan job lain sebagai syarat wajib: job yang dilewati karena PR hanya mengubah dokumentasi, atau uji Docker yang tidak berjalan karena berkas Docker tidak berubah, akan membuat PR tertahan menunggu selamanya.
 - **Block force pushes**.
 - **Require linear history**.
 
