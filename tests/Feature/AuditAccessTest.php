@@ -48,7 +48,7 @@ class AuditAccessTest extends TestCase
                 ->where('entries.data.0.ticket_code', 'PRD-2026-0012')
                 ->where('entries.data.0.hash', $entry->hash)
                 ->where('entries.data.0.after.product', 'Produk Uji')
-                ->has('navigation', 9));
+                ->has('navigation', 10));
     }
 
     public function test_admin_can_view_audit_entries_without_mutation_endpoints(): void

@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import Login from '../../resources/js/Pages/Auth/Login';
+import Clients from '../../resources/js/Pages/Backend/Clients';
 import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
@@ -400,5 +401,39 @@ describe('document templates', () => {
         expect(requests[0].url).toBe('/templates/1/versions');
         expect(requests[0].data).toMatchObject({ notes: 'Klausul pembayaran Midtrans' });
         expect(requests[0].data).not.toHaveProperty('name');
+    });
+});
+
+const marketingUser = { ...staff, id: 7, name: 'Rizal Marketing', role: 'marketing', role_label: 'Marketing' };
+const clientProps = { auth: { user: marketingUser, permissions: ['dashboard.view', 'clients.manage'] }, routes: { clients: '/clients' } };
+const clientPage = { data: [{ id: 3, name: 'Nusantara Herbal', company: 'CV Nusantara Herbal', pic_name: 'Nadia Putri', whatsapp: '6281234567890', email: 'nadia@nusantara.test', marketing_user_id: 7, marketing_user: 'Rizal Marketing', update_url: '/clients/3' }], current_page: 1, last_page: 1, total: 1, prev_page_url: null, next_page_url: null };
+
+describe('clients', () => {
+    it('lists clients with a readable WhatsApp number and their marketing person in charge', () => {
+        renderPage(<Clients clients={clientPage} marketingStaff={[{ value: 7, label: 'Rizal Marketing' }]} filters={{ search: '' }} urls={{ store: '/clients' }} />, clientProps);
+
+        expect(screen.getByText('Nusantara Herbal')).toBeInTheDocument();
+        expect(screen.getByText('+62 812-3456-7890')).toBeInTheDocument();
+        expect(screen.getByRole('cell', { name: 'Rizal Marketing' })).toBeInTheDocument();
+    });
+
+    it('adds a client and shows the duplicate WhatsApp error from the server', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data, options) => {
+            requests.push({ url, data });
+            options?.onError?.({ whatsapp: 'Nomor WhatsApp ini sudah dipakai klien lain.' });
+        });
+        renderPage(<Clients clients={{ ...clientPage, data: [], total: 0 }} marketingStaff={[{ value: 7, label: 'Rizal Marketing' }]} filters={{ search: '' }} urls={{ store: '/clients' }} />, clientProps);
+
+        await user.click(screen.getByRole('button', { name: 'Tambah klien' }));
+        await user.type(screen.getByLabelText('Nama klien'), 'Bumi Sehat');
+        await user.type(screen.getByLabelText('Nama PIC klien'), 'Sari');
+        await user.type(screen.getByLabelText('Nomor WhatsApp'), '0812 3456 7890');
+        await user.selectOptions(screen.getByLabelText('PIC Marketing'), '7');
+        await user.click(screen.getByRole('button', { name: 'Simpan' }));
+
+        expect(requests).toEqual([{ url: '/clients', data: { name: 'Bumi Sehat', company: '', pic_name: 'Sari', whatsapp: '0812 3456 7890', email: '', marketing_user_id: '7' } }]);
+        expect(screen.getByRole('alert')).toHaveTextContent('Nomor WhatsApp ini sudah dipakai klien lain.');
     });
 });
