@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\CriterionType;
 use App\DocumentRequirement;
 use App\DocumentScope;
 use App\Models\Category;
+use App\Models\Criterion;
 use App\Models\DocumentType;
 use App\Models\DosageForm;
 use App\Models\Holiday;
@@ -18,7 +20,7 @@ use Inertia\Response;
 class MasterDataController extends Controller
 {
     /** @var list<string> */
-    private const TABS = ['forms', 'ingredients', 'stages', 'documents', 'holidays'];
+    private const TABS = ['forms', 'ingredients', 'stages', 'documents', 'weights', 'holidays'];
 
     /**
      * Handle the incoming request.
@@ -86,6 +88,8 @@ class MasterDataController extends Controller
                 'pics' => array_map(fn (string $role): array => ['value' => $role, 'label' => DocumentType::roleLabel($role)], DocumentType::PIC_ROLES),
                 'verifiers' => array_map(fn (string $role): array => ['value' => $role, 'label' => DocumentType::roleLabel($role)], DocumentType::VERIFIER_ROLES),
             ],
+            'criteriaQueues' => $this->criteriaQueues(),
+            'criterionTypes' => array_map(fn (CriterionType $type): array => ['value' => $type->value, 'label' => $type->label()], CriterionType::cases()),
             'holidays' => Holiday::query()->orderBy('date')->get()->map(fn (Holiday $holiday): array => [
                 'id' => $holiday->id,
                 'date' => $holiday->date,
@@ -102,5 +106,23 @@ class MasterDataController extends Controller
                 'holidays' => route('master.holidays.store', absolute: false),
             ],
         ]);
+    }
+
+    /** @return list<array{queue: string, label: string, update_url: string, criteria: list<array<string, mixed>>}> */
+    private function criteriaQueues(): array
+    {
+        $criteria = Criterion::query()->orderBy('code')->get()->groupBy('queue');
+
+        return array_map(fn (string $queue): array => [
+            'queue' => $queue,
+            'label' => Criterion::queueLabel($queue),
+            'update_url' => route('master.criteria.update', $queue, absolute: false),
+            'criteria' => $criteria->get($queue, collect())->map(fn (Criterion $criterion): array => [
+                'code' => $criterion->code,
+                'name' => $criterion->name,
+                'weight' => $criterion->weight,
+                'type' => $criterion->type->value,
+            ])->values()->all(),
+        ], Criterion::QUEUES);
     }
 }

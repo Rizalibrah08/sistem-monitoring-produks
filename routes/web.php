@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CriterionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentRuleController;
 use App\Http\Controllers\DocumentTypeController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceModuleController;
 use App\Http\Middleware\EnsureActiveStaffSession;
 use App\Http\Middleware\EnsureWorkspaceModuleAccess;
+use App\Models\Criterion;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
@@ -38,6 +40,7 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
         Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
         Route::put('/materials/{material}', [MaterialController::class, 'update'])->name('materials.update');
+        Route::put('/criteria/{queue}', [CriterionController::class, 'update'])->whereIn('queue', Criterion::QUEUES)->name('criteria.update');
         Route::post('/document-types', [DocumentTypeController::class, 'store'])->name('document-types.store');
         Route::put('/document-types/{documentType}', [DocumentTypeController::class, 'update'])->name('document-types.update');
         Route::post('/stages', [StageController::class, 'store'])->name('stages.store');

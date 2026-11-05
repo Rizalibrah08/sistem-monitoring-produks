@@ -5,7 +5,7 @@ import type { BackendSharedProps } from '../../backend-types';
 import { Badge, Button, EmptyState, Field, InfoBox, Modal, PageHeader, Panel, Select } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
 
-type MasterTab = 'forms' | 'ingredients' | 'stages' | 'documents' | 'holidays';
+type MasterTab = 'forms' | 'ingredients' | 'stages' | 'documents' | 'weights' | 'holidays';
 type NamedItem = { id: number; name: string; is_active: boolean; update_url: string };
 type MaterialItem = NamedItem & { supplier: string | null };
 type StageItem = NamedItem & { code: string; phase: string; phase_label: string; sort_order: number; sla_days: number | null; waits_for_external: boolean };
@@ -15,6 +15,8 @@ type DocumentTypeItem = NamedItem & {
     pic_role: string; pic_label: string; verifier_role: string | null; verifier_label: string | null; requires_expiry_date: boolean; max_age_months: number | null;
 };
 type DocumentOptions = { phases: PhaseOption[]; scopes: PhaseOption[]; requirements: PhaseOption[]; pics: PhaseOption[]; verifiers: PhaseOption[] };
+type CriterionItem = { code: string; name: string; weight: number; type: string };
+type CriteriaQueue = { queue: string; label: string; update_url: string; criteria: CriterionItem[] };
 type HolidayItem = { id: number; date: string; name: string; update_url: string; delete_url: string };
 type MasterUrls = { dosageForms: string; categories: string; materials: string; stages: string; documentTypes: string; holidays: string };
 type NamedKind = { title: string; noun: string; storeUrl: string };
@@ -23,6 +25,7 @@ type Editor =
     | { kind: 'material'; item: MaterialItem | null }
     | { kind: 'stage'; item: StageItem | null }
     | { kind: 'document'; item: DocumentTypeItem | null }
+    | { kind: 'weights'; queue: CriteriaQueue }
     | { kind: 'holiday'; item: HolidayItem | null };
 
 const tabs: Array<[MasterTab, string]> = [
@@ -30,10 +33,11 @@ const tabs: Array<[MasterTab, string]> = [
     ['ingredients', 'Bahan baku'],
     ['stages', 'Tahapan & SLA'],
     ['documents', 'Jenis dokumen'],
+    ['weights', 'Kriteria AHP'],
     ['holidays', 'Hari libur'],
 ];
 
-export default function Master({ tab, dosageForms, categories, materials, stages, phases, documentTypes, documentOptions, holidays, urls }: { tab: MasterTab; dosageForms: NamedItem[]; categories: NamedItem[]; materials: MaterialItem[]; stages: StageItem[]; phases: PhaseOption[]; documentTypes: DocumentTypeItem[]; documentOptions: DocumentOptions; holidays: HolidayItem[]; urls: MasterUrls }) {
+export default function Master({ tab, dosageForms, categories, materials, stages, phases, documentTypes, documentOptions, criteriaQueues, criterionTypes, holidays, urls }: { tab: MasterTab; dosageForms: NamedItem[]; categories: NamedItem[]; materials: MaterialItem[]; stages: StageItem[]; phases: PhaseOption[]; documentTypes: DocumentTypeItem[]; documentOptions: DocumentOptions; criteriaQueues: CriteriaQueue[]; criterionTypes: PhaseOption[]; holidays: HolidayItem[]; urls: MasterUrls }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [activeTab, setActiveTab] = useState<MasterTab>(tab);
     const [editor, setEditor] = useState<Editor | null>(null);
@@ -123,6 +127,28 @@ export default function Master({ tab, dosageForms, categories, materials, stages
                     <div className="mt-5"><InfoBox>Dokumen ber-PIC klien diunggah melalui tautan bertoken. RA selalu menyetujui pemakaian dokumen; verifikator isi menambah pemeriksaan sebelum itu.</InfoBox></div>
                 </>
             )}
+            {activeTab === 'weights' && (
+                <>
+                    <div className="two-column">
+                        {criteriaQueues.map((queue) => (
+                            <Panel key={queue.queue} title={`Antrean ${queue.label}`} action={<Button variant="secondary" icon={Pencil} aria-label={`Ubah bobot ${queue.label}`} onClick={() => setEditor({ kind: 'weights', queue })}>Ubah</Button>}>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full"><thead><tr><th>Kode</th><th>Kriteria</th><th>Bobot</th><th>Jenis</th></tr></thead>
+                                        <tbody>{queue.criteria.map((criterion) => <tr key={criterion.code}>
+                                            <td><strong>{criterion.code}</strong></td>
+                                            <td>{criterion.name}</td>
+                                            <td>{formatWeight(criterion.weight)}</td>
+                                            <td><Badge tone={criterion.type === 'benefit' ? 'green' : 'neutral'}>{criterionTypes.find((type) => type.value === criterion.type)?.label ?? criterion.type}</Badge></td>
+                                        </tr>)}</tbody>
+                                    </table>
+                                </div>
+                                <p className="mt-3 text-sm text-gray-500">Total {formatWeight(queue.criteria.reduce((sum, criterion) => sum + criterion.weight, 0))}</p>
+                            </Panel>
+                        ))}
+                    </div>
+                    <div className="mt-5"><InfoBox>Bobot awal adalah hasil AHP konsensus Manajer dan RA dengan rasio konsistensi 0,057. Benefit: makin besar makin diprioritaskan; cost: makin kecil makin diprioritaskan.</InfoBox></div>
+                </>
+            )}
             {activeTab === 'holidays' && (
                 <>
                     <Panel title="Hari libur" description="Libur nasional dan cuti bersama yang tidak dihitung sebagai hari kerja." action={<Button variant="secondary" icon={Plus} onClick={() => setEditor({ kind: 'holiday', item: null })}>Tambah hari libur</Button>}>
@@ -148,6 +174,7 @@ export default function Master({ tab, dosageForms, categories, materials, stages
             {editor?.kind === 'material' && <MaterialEditor key={editor.item?.id ?? 'new'} item={editor.item} storeUrl={urls.materials} onClose={() => setEditor(null)} />}
             {editor?.kind === 'stage' && <StageEditor key={editor.item?.id ?? 'new'} item={editor.item} phases={phases} nextOrder={Math.max(0, ...stages.map((stage) => stage.sort_order)) + 1} storeUrl={urls.stages} onClose={() => setEditor(null)} />}
             {editor?.kind === 'document' && <DocumentTypeEditor key={editor.item?.id ?? 'new'} item={editor.item} options={documentOptions} storeUrl={urls.documentTypes} onClose={() => setEditor(null)} />}
+            {editor?.kind === 'weights' && <WeightsEditor key={editor.queue.queue} queue={editor.queue} types={criterionTypes} onClose={() => setEditor(null)} />}
             {editor?.kind === 'holiday' && <HolidayEditor key={editor.item?.id ?? 'new'} item={editor.item} storeUrl={urls.holidays} onClose={() => setEditor(null)} />}
         </BackendLayout>
     );
@@ -283,6 +310,44 @@ function DocumentTypeEditor({ item, options, storeUrl, onClose }: { item: Docume
             </form>
         </Modal>
     );
+}
+
+function WeightsEditor({ queue, types, onClose }: { queue: CriteriaQueue; types: PhaseOption[]; onClose: () => void }) {
+    const form = useForm({
+        criteria: Object.fromEntries(queue.criteria.map((criterion) => [criterion.code, { weight: String(criterion.weight), type: criterion.type }])) as Record<string, { weight: string; type: string }>,
+    });
+    const total = Object.values(form.data.criteria).reduce((sum, criterion) => sum + (Number(criterion.weight) || 0), 0);
+    const balanced = Math.abs(total - 1) <= 0.0005;
+    const errors = form.errors as Record<string, string | undefined>;
+
+    function change(code: string, field: 'weight' | 'type', value: string) {
+        form.setData('criteria', { ...form.data.criteria, [code]: { ...form.data.criteria[code], [field]: value } });
+    }
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        form.put(queue.update_url, { preserveScroll: true, onSuccess: onClose });
+    }
+
+    return (
+        <Modal title={`Bobot antrean ${queue.label}`} description="Bobot keempat kriteria harus berjumlah 1,000. Perubahan berlaku pada perhitungan antrean berikutnya." onClose={onClose}>
+            <form onSubmit={submit} className="form-stack">
+                {queue.criteria.map((criterion) => (
+                    <div key={criterion.code} className="two-column">
+                        <Field label={`Bobot ${criterion.code}`} error={errors[`criteria.${criterion.code}.weight`]} hint={criterion.name}><input type="number" required min={0.001} max={0.999} step={0.001} value={form.data.criteria[criterion.code].weight} onChange={(event) => change(criterion.code, 'weight', event.target.value)} /></Field>
+                        <Field label={`Jenis ${criterion.code}`} error={errors[`criteria.${criterion.code}.type`]}><Select value={form.data.criteria[criterion.code].type} onChange={(event) => change(criterion.code, 'type', event.target.value)}>{types.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}</Select></Field>
+                    </div>
+                ))}
+                <p role="status" className={balanced ? 'text-sm text-gray-500' : 'text-sm text-red-700'}>Total {formatWeight(total)}{balanced ? '' : ' — harus 1,000'}</p>
+                {errors.criteria && <p role="alert" className="text-red-700">{errors.criteria}</p>}
+                <div className="form-footer"><Button variant="secondary" onClick={onClose} disabled={form.processing}>Batal</Button><Button type="submit" disabled={form.processing || !balanced}>{form.processing ? 'Menyimpan...' : 'Simpan'}</Button></div>
+            </form>
+        </Modal>
+    );
+}
+
+function formatWeight(value: number) {
+    return value.toLocaleString('id-ID', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
 
 function validityLabel(type: DocumentTypeItem) {

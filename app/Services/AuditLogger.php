@@ -14,12 +14,14 @@ class AuditLogger
 
     /** @param array<string, mixed> $before
      * @param  array<string, mixed>  $after
+     * @param  array<string, mixed>  $properties
      */
-    public function record(string $event, ?Model $subject = null, array $before = [], array $after = [], ?string $reason = null, string $source = 'web', ?User $actor = null, ?string $ticketCode = null): Activity
+    public function record(string $event, ?Model $subject = null, array $before = [], array $after = [], ?string $reason = null, string $source = 'web', ?User $actor = null, ?string $ticketCode = null, array $properties = []): Activity
     {
         $actor ??= $this->request->user();
         $pending = activity(strtok($event, '.'))->event($event)
             ->withChanges(['old' => $before, 'attributes' => $after])
+            ->withProperties($properties)
             ->tap(function (Activity $activity) use ($reason, $source, $ticketCode): void {
                 $activity->source = $source;
                 $activity->ticket_code = $ticketCode;
