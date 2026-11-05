@@ -1,29 +1,29 @@
 # Panduan Git Branching — Aisha Monitor
 
-Panduan ini mengatur cara tim (Rizal sebagai Web Developer, Adit sebagai System Analyst/DevOps/QA) bekerja di repository `Rizalibrah08/sistem-monitoring-produks`. Modelnya **GitFlow ringan**: dua branch permanen dan branch sementara per pekerjaan, disesuaikan dengan sembilan inkremen pada PRD v1.3 §8.
+Panduan ini mengatur cara tim (Rizal sebagai Web Developer, Adit sebagai System Analyst/DevOps/QA) bekerja di repository `Rizalibrah08/sistem-monitoring-produks`. Modelnya **trunk-based**: hanya satu branch permanen, yaitu `main`. Setiap pekerjaan dikerjakan di branch pendek lalu digabung ke `main` lewat Pull Request yang wajib lulus CI. Rilis setiap inkremen PRD v1.3 §8 ditandai dengan tag.
 
 ```
-main      ●───────────────●─────────────────●──────── (produksi, tag per inkremen)
-           \             / \               /
-develop     ●──●──●──●──●───●──●──●──●──●──●───────── (staging, demo inkremen)
-               \  /  \  /       \    /
-feature/...     ●●    ●●         ●●●              (pekerjaan harian)
+feature/...    ●─●     ●─●─●        ●─●
+              /   \   /     \      /   \
+main  ●──────●─────●─●───────●────●─────●──────►   setiap merge → staging
+                   │                    │
+                 v0.1.0               v0.2.0        setiap tag → produksi
 ```
 
-## 1. Branch permanen
+## 1. Branch `main`
 
-| Branch | Fungsi | Deploy ke | Siapa yang boleh merge |
+| Branch | Fungsi | Deploy ke | Cara perubahan masuk |
 |---|---|---|---|
-| `main` | Kode yang sudah didemokan dan disetujui; selalu siap dipakai | Server produksi (deployment akhir Inkremen 8) | Lewat Pull Request dari `develop` atau `hotfix/*`, disetujui 1 anggota lain |
-| `develop` | Integrasi semua pekerjaan inkremen yang sedang berjalan | Server staging (demo ke pengguna) | Lewat Pull Request dari branch sementara, CI wajib lulus |
+| `main` | Satu-satunya sumber kebenaran; selalu dalam keadaan lulus CI | Staging pada setiap merge; produksi pada setiap tag rilis | Lewat Pull Request, keempat pemeriksaan CI wajib hijau; pembuat PR boleh merge sendiri |
 
-Aturan untuk keduanya:
+Aturan `main`:
 
-- Tidak boleh commit langsung; semua perubahan masuk lewat Pull Request (PR).
+- Tidak boleh commit atau push langsung; semua perubahan masuk lewat Pull Request (PR).
 - Tidak boleh `git push --force`.
 - Tidak boleh dihapus.
+- Kode di `main` harus selalu bisa dijalankan. Fitur yang belum selesai boleh masuk bila tidak merusak alur yang ada, misalnya menunya belum ditampilkan.
 
-## 2. Branch sementara
+## 2. Branch kerja
 
 Format nama: `<tipe>/inc<N>-<kode>-<deskripsi-singkat>`
 
@@ -32,21 +32,22 @@ Format nama: `<tipe>/inc<N>-<kode>-<deskripsi-singkat>`
 - `<kode>` adalah kode fitur PRD (`F03`) atau kebutuhan SRS (`FR-31`). Boleh dihilangkan untuk pekerjaan umum.
 - `<deskripsi-singkat>` ditulis dengan huruf kecil dan tanda hubung, tanpa spasi, maksimal sekitar 5 kata.
 
-| Tipe | Dipakai untuk | Dibuat dari | Digabung ke | Contoh |
-|---|---|---|---|---|
-| `feature/` | Fitur baru sesuai PRD/SRS | `develop` | `develop` | `feature/inc2-F03-buat-tiket-checklist` |
-| `fix/` | Perbaikan bug yang ditemukan di staging | `develop` | `develop` | `fix/inc3-FR-78-gerbang-mou` |
-| `infra/` | Docker, CI/CD, server, backup | `develop` | `develop` | `infra/inc0-docker-compose` |
-| `test/` | Menambah tes atau skenario uji saja | `develop` | `develop` | `test/inc6-topsis-12-skenario` |
-| `docs/` | Dokumentasi, PRD, SRS, panduan | `develop` | `develop` | `docs/panduan-git-branching` |
-| `refactor/` | Merapikan kode tanpa mengubah perilaku | `develop` | `develop` | `refactor/inc1-audit-logger` |
-| `hotfix/` | Bug mendesak di produksi | `main` | `main` **dan** `develop` | `hotfix/login-terkunci-permanen` |
+Semua branch kerja dibuat dari `main` dan digabung kembali ke `main`.
 
-Satu branch berisi satu pekerjaan yang dapat diselesaikan dalam 1–3 hari. Fitur besar dipecah: misalnya F10 menjadi `feature/inc6-F10-hitung-kriteria` lalu `feature/inc6-F10-antrean-topsis`.
+| Tipe | Dipakai untuk | Contoh |
+|---|---|---|
+| `feature/` | Fitur baru sesuai PRD/SRS | `feature/inc2-F03-buat-tiket-checklist` |
+| `fix/` | Perbaikan bug, termasuk bug mendesak di produksi | `fix/inc3-FR-78-gerbang-mou` |
+| `infra/` | Docker, CI/CD, server, backup | `infra/inc0-docker-compose` |
+| `test/` | Menambah tes atau skenario uji saja | `test/inc6-topsis-12-skenario` |
+| `docs/` | Dokumentasi, PRD, SRS, panduan | `docs/panduan-git-branching` |
+| `refactor/` | Merapikan kode tanpa mengubah perilaku | `refactor/inc1-audit-logger` |
+
+Satu branch berisi satu pekerjaan yang dapat diselesaikan dalam 1–3 hari. Makin pendek umur branch, makin kecil konflik. Fitur besar dipecah, misalnya F10 menjadi `feature/inc6-F10-hitung-kriteria` lalu `feature/inc6-F10-antrean-topsis`.
 
 ## 3. Pemetaan inkremen
 
-| Inkremen | Isi (PRD §8) | Contoh branch | Tag setelah masuk `main` |
+| Inkremen | Isi (PRD §8) | Contoh branch | Tag rilis |
 |---|---|---|---|
 | 0 | Fondasi: Docker, CI, staging | `infra/inc0-docker-compose`, `infra/inc0-github-actions` | `v0.0.0` |
 | 1 | Akses, audit, template (F01, F02, F14, F26) | `feature/inc1-F02-master-data`, `feature/inc1-F26-template-word` | `v0.1.0` |
@@ -58,15 +59,15 @@ Satu branch berisi satu pekerjaan yang dapat diselesaikan dalam 1–3 hari. Fitu
 | 7 | Pelengkap (F17, F18, fitur Could) | `feature/inc7-F18-ekspor-log` | `v0.7.0` |
 | 8 | Evaluasi: UAT, SUS, perbaikan | `fix/inc8-...`, `test/inc8-...` | `v1.0.0` (rilis tugas akhir) |
 
-Perbaikan kecil setelah rilis dinaikkan versi patch-nya: `v0.3.1`, `v1.0.1`.
+Perbaikan setelah rilis dinaikkan versi patch-nya: `v0.3.1`, `v1.0.1`.
 
 ## 4. Alur kerja harian
 
 ### 4.1 Mulai pekerjaan
 
 ```sh
-git switch develop
-git pull origin develop
+git switch main
+git pull origin main
 git switch -c feature/inc2-F03-buat-tiket-checklist
 ```
 
@@ -79,7 +80,7 @@ git push -u origin feature/inc2-F03-buat-tiket-checklist   # push pertama
 git push                                                     # push berikutnya
 ```
 
-Sebelum push, jalankan pemeriksaan lokal:
+Setiap push ke branch apa pun menjalankan CI, sehingga kesalahan sudah terlihat sebelum PR dibuka. Pemeriksaan lokal sebelum push tetap dianjurkan:
 
 ```sh
 vendor/bin/pint --dirty --format agent
@@ -88,30 +89,31 @@ npm run typecheck
 npm run test
 ```
 
-### 4.3 Menyamakan dengan develop
+### 4.3 Menyamakan dengan main
 
-Bila `develop` sudah maju selama Anda bekerja:
+Bila `main` sudah maju selama Anda bekerja:
 
 ```sh
 git fetch origin
-git rebase origin/develop          # selesaikan konflik bila ada, lalu: git rebase --continue
+git rebase origin/main             # selesaikan konflik bila ada, lalu: git rebase --continue
 git push --force-with-lease        # aman: hanya untuk branch milik sendiri
 ```
 
-`--force-with-lease` hanya boleh dipakai di branch sementara milik sendiri, tidak pernah di `main` atau `develop`.
+`--force-with-lease` hanya boleh dipakai di branch kerja milik sendiri, tidak pernah di `main`.
 
-### 4.4 Membuka Pull Request
+### 4.4 Membuka dan menggabungkan Pull Request
 
-1. Buka GitHub, lalu klik **Compare & pull request**. Base: `develop`; compare: branch Anda.
+1. Buka GitHub, lalu klik **Compare & pull request**. Base: `main`; compare: branch Anda.
 2. Judul PR mengikuti format commit, misalnya `feat(tiket): buat tiket dan checklist dua fase (F03)`.
 3. Isi template PR, termasuk checklist Definition of Done.
-4. Minta review dari anggota lain: Rizal mereview infra/docs, Adit mereview fitur dan menguji di staging.
-5. Setelah disetujui dan CI lulus, pilih **Squash and merge**.
-6. Hapus branch setelah merge (tombol **Delete branch**), lalu bersihkan lokal:
+4. Tunggu semua pemeriksaan CI hijau: `Backend (sqlite)`, `Backend (mysql)`, `Frontend`, dan `Build dan uji asap Compose`. Bila merah, buka tab **Checks** atau **Files changed**; cuplikan galat tampil sebagai anotasi.
+5. Merge dengan **Squash and merge**. Pembuat PR boleh merge sendiri tanpa menunggu review; tim berdua cukup saling memberi tahu lewat komentar PR atau chat. Review tetap dianjurkan untuk perubahan besar, seperti skema basis data, perhitungan TOPSIS, atau alur gerbang fase.
+6. Setelah merge, perubahan otomatis ter-deploy ke staging. Periksa staging sebelum melanjutkan.
+7. Hapus branch setelah merge (otomatis bila pengaturan §8 aktif), lalu bersihkan lokal:
 
 ```sh
-git switch develop
-git pull origin develop
+git switch main
+git pull origin main
 git branch -d feature/inc2-F03-buat-tiket-checklist
 ```
 
@@ -151,17 +153,15 @@ ci: jalankan php artisan test dan vitest pada pull request
 docs(srs): perbarui daftar pustaka ke PHPUnit
 ```
 
-Hindari pesan seperti `update`, `fix`, `wip`, atau `perbaikan`. Riwayat commit adalah bagian dari bukti pengerjaan tugas akhir.
+Karena PR digabung dengan squash, judul PR menjadi pesan commit di `main`. Pastikan judul PR mengikuti format di atas. Hindari pesan seperti `update`, `fix`, `wip`, atau `perbaikan`. Riwayat commit adalah bagian dari bukti pengerjaan tugas akhir.
 
 ## 6. Rilis per inkremen
 
 Dilakukan Adit setelah semua butir Definition of Done inkremen terpenuhi (PRD §8):
 
-1. Pastikan `develop` lulus CI dan sudah didemokan di staging.
-2. Buka PR dari `develop` ke `main` dengan judul `release: inkremen 2 — tiket, dokumen, validasi`.
-3. Isi deskripsi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
-4. Merge dengan **Create a merge commit** (bukan squash), agar riwayat `develop` tetap terlihat di `main`.
-5. Beri tag dan catatan rilis:
+1. Pastikan commit terakhir di `main` lulus CI dan sudah didemokan di staging.
+2. Beri tahu anggota lain bahwa inkremen akan dirilis. Tag menjadi bukti rilis dan memicu deployment produksi.
+3. Buat tag beranotasi pada `main`:
 
 ```sh
 git switch main
@@ -170,46 +170,45 @@ git tag -a v0.2.0 -m "Inkremen 2: tiket, dokumen, validasi"
 git push origin v0.2.0
 ```
 
-6. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**.
+4. Di GitHub, buka **Releases → Draft a new release**, pilih tag tersebut, lalu klik **Generate release notes**. Lengkapi dengan daftar fitur/FR yang selesai, hasil black box, dan catatan masukan demo.
 
-## 7. Hotfix produksi
+## 7. Perbaikan mendesak di produksi
 
-Hanya untuk bug di `main` yang tidak bisa menunggu inkremen berikutnya:
+Tidak ada branch khusus hotfix. Bug produksi diperbaiki seperti pekerjaan biasa, hanya diprioritaskan:
 
 ```sh
 git switch main
 git pull origin main
-git switch -c hotfix/login-terkunci-permanen
-# perbaiki, tambahkan tes, commit
-git push -u origin hotfix/login-terkunci-permanen
+git switch -c fix/login-terkunci-permanen
+# perbaiki, tambahkan tes yang membuktikan bug sudah hilang, commit
+git push -u origin fix/login-terkunci-permanen
 ```
 
-1. Buka PR ke `main`, review, lalu merge. Beri tag patch (misalnya `v1.0.1`).
-2. Bawa perbaikan ke `develop`:
-
-```sh
-git switch develop
-git pull origin develop
-git merge --no-ff origin/main
-git push origin develop
-```
+1. Buka PR ke `main`, tunggu CI hijau, beri tahu anggota lain, lalu merge.
+2. Periksa perbaikan di staging.
+3. Beri tag patch, misalnya `v1.0.1`, agar perbaikan ter-deploy ke produksi.
 
 ## 8. Pengaturan proteksi branch di GitHub
 
-Dilakukan sekali oleh pemilik repository (Rizal). Buka **Settings → Branches → Add branch ruleset** (atau **Add rule**), lalu buat aturan untuk `main` dan `develop`:
+Karena `main` langsung dipakai untuk staging, proteksi ini **wajib** aktif. Dilakukan sekali oleh anggota yang memiliki akses admin repository.
 
-- **Require a pull request before merging**, dengan **Required approvals: 1**.
-- **Require status checks to pass**: pilih job CI setelah GitHub Actions dibuat (Inkremen 0).
-- **Block force pushes**.
+Buka **Settings → Rules → Rulesets → New branch ruleset**, beri nama `main`, pilih target **Include default branch**, lalu aktifkan:
+
 - **Restrict deletions**.
-- Khusus `main`: aktifkan juga **Require linear history** = *tidak*. Merge commit dibutuhkan untuk rilis.
+- **Require a pull request before merging**, dengan **Required approvals: 0**. Tim berdua dapat merge sendiri; yang dijaga adalah CI, bukan persetujuan.
+- **Require status checks to pass**, lalu tambahkan `Backend (sqlite)`, `Backend (mysql)`, `Frontend`, dan `Build dan uji asap Compose`. Nama job bisa dipilih setelah workflow pernah berjalan sekali.
+- **Block force pushes**.
+- **Require linear history**.
+
+Bypass list dibiarkan kosong agar aturan berlaku juga untuk admin.
+
+Untuk melindungi tag rilis, buat ruleset kedua bertipe **tag ruleset** dengan target `v*`, lalu aktifkan **Restrict deletions**, **Restrict updates**, dan **Block force pushes**.
 
 Lalu di **Settings → General → Pull Requests**:
 
-- Aktifkan **Allow squash merging** dan **Allow merge commits**; nonaktifkan **Allow rebase merging**.
+- Aktifkan hanya **Allow squash merging**; nonaktifkan **Allow merge commits** dan **Allow rebase merging**.
+- Pada **Default commit message** untuk squash, pilih **Pull request title and description**.
 - Aktifkan **Automatically delete head branches**.
-
-Terakhir, ubah **Default branch** ke `develop` agar PR baru otomatis mengarah ke `develop`.
 
 ## 9. Hal yang tidak boleh di-commit
 
@@ -224,11 +223,11 @@ Bila terlanjur meng-commit rahasia, segera ganti kredensial tersebut. Menghapus 
 
 | Saya ingin... | Perintah |
 |---|---|
-| Mulai fitur | `git switch develop && git pull && git switch -c feature/incN-FXX-nama` |
+| Mulai pekerjaan | `git switch main && git pull && git switch -c feature/incN-FXX-nama` |
 | Simpan pekerjaan | `git add <file> && git commit -m "feat(lingkup): ringkasan"` |
 | Kirim ke GitHub | `git push -u origin <branch>` |
-| Ikut perubahan terbaru | `git fetch origin && git rebase origin/develop` |
+| Ikut perubahan terbaru | `git fetch origin && git rebase origin/main` |
 | Lihat status | `git status` dan `git log --oneline --graph -15` |
 | Batalkan perubahan file yang belum di-commit | `git restore <file>` |
 | Hapus branch lokal setelah merge | `git branch -d <branch>` |
-| Rilis inkremen | PR `develop` → `main`, lalu `git tag -a v0.N.0` |
+| Rilis inkremen | `git tag -a v0.N.0 -m "Inkremen N: ..."` lalu `git push origin v0.N.0` |
