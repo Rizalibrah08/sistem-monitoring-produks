@@ -128,11 +128,6 @@ return [
             'description' => 'Tahapan internal yang melampaui SLA hari kerja.', 'empty_title' => 'Belum ada data eskalasi',
             'columns' => ['Tiket', 'Tahap', 'PIC', 'Tenggat', 'Status'],
         ],
-        'master' => [
-            'title' => 'Master data', 'path' => '/master', 'route' => 'master.index', 'icon' => 'settings', 'group' => 'Administrasi',
-            'roles' => ['admin'],
-            'description' => 'Sediaan, kategori, bahan baku, tahapan, SLA, aturan dokumen, kriteria, dan hari libur.', 'empty_title' => 'Pengelolaan master data belum tersedia',
-        ],
         'templates' => [
             'title' => 'Templat dokumen', 'path' => '/templates', 'route' => 'templates.index', 'icon' => 'file', 'group' => 'Administrasi',
             'roles' => ['admin'],
