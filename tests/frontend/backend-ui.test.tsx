@@ -93,7 +93,8 @@ const phases = [
     { value: 'registrasi', label: 'Registrasi' },
     { value: 'kedua_fase', label: 'Kedua fase' },
 ];
-const masterProps = { dosageForms: [], categories: [], materials: [], stages: [], phases, documentTypes: [], documentOptions, holidays: [], urls: masterUrls };
+const criterionTypes = [{ value: 'benefit', label: 'Benefit' }, { value: 'cost', label: 'Cost' }];
+const masterProps = { dosageForms: [], categories: [], materials: [], stages: [], phases, documentTypes: [], documentOptions, criteriaQueues: [], criterionTypes, holidays: [], urls: masterUrls };
 const adminProps = { auth: { user: admin, permissions: ['dashboard.view', 'master.manage'] }, routes: { master: '/master' } };
 
 describe('master data', () => {
@@ -243,6 +244,54 @@ describe('master data', () => {
         expect(requests).toEqual([{
             url: '/master/document-types',
             data: { name: 'Surat kuasa', phase: 'pra_registrasi', scope: 'klien', requirement: 'wajib', pic_role: 'client', verifier_role: '', requires_expiry_date: false, max_age_months: '', is_active: true },
+        }]);
+    });
+
+    it('shows the AHP weights of each queue and only saves weights that add up to one', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'put').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <Master
+                {...masterProps}
+                tab="weights"
+                criteriaQueues={[{
+                    queue: 'ra', label: 'Regulatory Affairs', update_url: '/master/criteria/ra',
+                    criteria: [
+                        { code: 'C1', name: 'Critical Ratio', weight: 0.048, type: 'cost' },
+                        { code: 'C2', name: 'Sisa hari kerja ke tenggat BPOM', weight: 0.74, type: 'cost' },
+                        { code: 'C3', name: 'Kelengkapan dokumen wajib', weight: 0.106, type: 'benefit' },
+                        { code: 'C4', name: 'Umur tiket', weight: 0.106, type: 'benefit' },
+                    ],
+                }]}
+            />,
+            adminProps,
+        );
+
+        expect(screen.getByText('Antrean Regulatory Affairs')).toBeInTheDocument();
+        expect(screen.getByText('0,740')).toBeInTheDocument();
+        expect(screen.getByText('Total 1,000')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Ubah bobot Regulatory Affairs' }));
+        await user.clear(screen.getByLabelText('Bobot C1'));
+        await user.type(screen.getByLabelText('Bobot C1'), '0.1');
+        expect(screen.getByRole('status')).toHaveTextContent('Total 1,052');
+        expect(screen.getByRole('button', { name: 'Simpan' })).toBeDisabled();
+
+        await user.clear(screen.getByLabelText('Bobot C1'));
+        await user.type(screen.getByLabelText('Bobot C1'), '0.048');
+        await user.click(screen.getByRole('button', { name: 'Simpan' }));
+
+        expect(requests).toEqual([{
+            url: '/master/criteria/ra',
+            data: { criteria: {
+                C1: { weight: '0.048', type: 'cost' },
+                C2: { weight: '0.74', type: 'cost' },
+                C3: { weight: '0.106', type: 'benefit' },
+                C4: { weight: '0.106', type: 'benefit' },
+            } },
         }]);
     });
 });
