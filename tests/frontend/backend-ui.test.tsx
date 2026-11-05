@@ -78,14 +78,21 @@ describe('backend workspace', () => {
 });
 
 const admin = { ...staff, id: 9, name: 'Admin Aisha', role: 'admin', role_label: 'Admin' };
-const masterUrls = { dosageForms: '/master/dosage-forms', categories: '/master/categories', materials: '/master/materials', stages: '/master/stages', holidays: '/master/holidays' };
+const masterUrls = { dosageForms: '/master/dosage-forms', categories: '/master/categories', materials: '/master/materials', stages: '/master/stages', documentTypes: '/master/document-types', holidays: '/master/holidays' };
+const documentOptions = {
+    phases: [{ value: 'pra_registrasi', label: 'Pra-registrasi' }, { value: 'registrasi', label: 'Registrasi' }, { value: 'kedua_fase', label: 'Kedua fase' }],
+    scopes: [{ value: 'tiket', label: 'Tiket' }, { value: 'klien', label: 'Klien' }, { value: 'bahan_baku', label: 'Bahan baku' }, { value: 'perusahaan', label: 'Perusahaan' }],
+    requirements: [{ value: 'wajib', label: 'Wajib' }, { value: 'kondisional', label: 'Kondisional' }, { value: 'opsional', label: 'Opsional' }],
+    pics: [{ value: 'marketing', label: 'Marketing' }, { value: 'rnd', label: 'R&D' }, { value: 'qa', label: 'QA/QC' }, { value: 'ra', label: 'Regulatory Affairs' }, { value: 'client', label: 'Klien' }],
+    verifiers: [{ value: 'qa', label: 'QA/QC' }, { value: 'ra', label: 'Regulatory Affairs' }],
+};
 const phases = [
     { value: 'awal', label: 'Awal' },
     { value: 'pra_registrasi', label: 'Pra-registrasi' },
     { value: 'registrasi', label: 'Registrasi' },
     { value: 'kedua_fase', label: 'Kedua fase' },
 ];
-const masterProps = { dosageForms: [], categories: [], materials: [], stages: [], phases, holidays: [], urls: masterUrls };
+const masterProps = { dosageForms: [], categories: [], materials: [], stages: [], phases, documentTypes: [], documentOptions, holidays: [], urls: masterUrls };
 const adminProps = { auth: { user: admin, permissions: ['dashboard.view', 'master.manage'] }, routes: { master: '/master' } };
 
 describe('master data', () => {
@@ -201,6 +208,40 @@ describe('master data', () => {
         expect(requests).toEqual([{
             url: '/master/stages/1',
             data: { name: 'Perbaikan dokumen', phase: 'kedua_fase', sort_order: '12', sla_days: '', waits_for_external: true, is_active: true },
+        }]);
+    });
+
+    it('lists document types with their age limit and adds a client document without a content verifier', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <Master
+                {...masterProps}
+                tab="documents"
+                documentTypes={[{
+                    id: 7, name: 'CoA produk jadi', phase: 'kedua_fase', phase_label: 'Kedua fase', scope: 'tiket', scope_label: 'Tiket',
+                    requirement: 'wajib', requirement_label: 'Wajib', pic_role: 'qa', pic_label: 'QA/QC', verifier_role: 'qa', verifier_label: 'QA/QC',
+                    requires_expiry_date: false, max_age_months: 6, is_active: true, update_url: '/master/document-types/7',
+                }]}
+            />,
+            adminProps,
+        );
+
+        expect(screen.getByText('CoA produk jadi')).toBeInTheDocument();
+        expect(screen.getByText('Maks. 6 bulan')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Tambah jenis dokumen' }));
+        await user.type(screen.getByLabelText('Nama jenis dokumen'), 'Surat kuasa');
+        await user.selectOptions(screen.getByLabelText('Cakupan'), 'klien');
+        await user.selectOptions(screen.getByLabelText('PIC'), 'client');
+        await user.click(screen.getByRole('button', { name: 'Simpan' }));
+
+        expect(requests).toEqual([{
+            url: '/master/document-types',
+            data: { name: 'Surat kuasa', phase: 'pra_registrasi', scope: 'klien', requirement: 'wajib', pic_role: 'client', verifier_role: '', requires_expiry_date: false, max_age_months: '', is_active: true },
         }]);
     });
 });

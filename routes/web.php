@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MasterDataController;
@@ -36,6 +37,8 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
         Route::put('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
         Route::put('/materials/{material}', [MaterialController::class, 'update'])->name('materials.update');
+        Route::post('/document-types', [DocumentTypeController::class, 'store'])->name('document-types.store');
+        Route::put('/document-types/{documentType}', [DocumentTypeController::class, 'update'])->name('document-types.update');
         Route::post('/stages', [StageController::class, 'store'])->name('stages.store');
         Route::put('/stages/{stage}', [StageController::class, 'update'])->name('stages.update');
         Route::post('/holidays', [HolidayController::class, 'store'])->name('holidays.store');

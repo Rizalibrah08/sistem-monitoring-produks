@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\DocumentRequirement;
+use App\DocumentScope;
 use App\Models\Category;
+use App\Models\DocumentType;
 use App\Models\DosageForm;
 use App\Models\Holiday;
 use App\Models\Material;
@@ -15,7 +18,7 @@ use Inertia\Response;
 class MasterDataController extends Controller
 {
     /** @var list<string> */
-    private const TABS = ['forms', 'ingredients', 'stages', 'holidays'];
+    private const TABS = ['forms', 'ingredients', 'stages', 'documents', 'holidays'];
 
     /**
      * Handle the incoming request.
@@ -58,6 +61,31 @@ class MasterDataController extends Controller
                 'update_url' => route('master.stages.update', $stage, absolute: false),
             ]),
             'phases' => array_map(fn (StagePhase $phase): array => ['value' => $phase->value, 'label' => $phase->label()], StagePhase::cases()),
+            'documentTypes' => DocumentType::query()->orderBy('name')->get()->map(fn (DocumentType $type): array => [
+                'id' => $type->id,
+                'name' => $type->name,
+                'phase' => $type->phase->value,
+                'phase_label' => $type->phase->label(),
+                'scope' => $type->scope->value,
+                'scope_label' => $type->scope->label(),
+                'requirement' => $type->requirement->value,
+                'requirement_label' => $type->requirement->label(),
+                'pic_role' => $type->pic_role,
+                'pic_label' => DocumentType::roleLabel($type->pic_role),
+                'verifier_role' => $type->verifier_role,
+                'verifier_label' => DocumentType::roleLabel($type->verifier_role),
+                'requires_expiry_date' => $type->requires_expiry_date,
+                'max_age_months' => $type->max_age_months,
+                'is_active' => $type->is_active,
+                'update_url' => route('master.document-types.update', $type, absolute: false),
+            ]),
+            'documentOptions' => [
+                'phases' => array_map(fn (StagePhase $phase): array => ['value' => $phase->value, 'label' => $phase->label()], [StagePhase::PreRegistration, StagePhase::Registration, StagePhase::BothPhases]),
+                'scopes' => array_map(fn (DocumentScope $scope): array => ['value' => $scope->value, 'label' => $scope->label()], DocumentScope::cases()),
+                'requirements' => array_map(fn (DocumentRequirement $requirement): array => ['value' => $requirement->value, 'label' => $requirement->label()], DocumentRequirement::cases()),
+                'pics' => array_map(fn (string $role): array => ['value' => $role, 'label' => DocumentType::roleLabel($role)], DocumentType::PIC_ROLES),
+                'verifiers' => array_map(fn (string $role): array => ['value' => $role, 'label' => DocumentType::roleLabel($role)], DocumentType::VERIFIER_ROLES),
+            ],
             'holidays' => Holiday::query()->orderBy('date')->get()->map(fn (Holiday $holiday): array => [
                 'id' => $holiday->id,
                 'date' => $holiday->date,
@@ -70,6 +98,7 @@ class MasterDataController extends Controller
                 'categories' => route('master.categories.store', absolute: false),
                 'materials' => route('master.materials.store', absolute: false),
                 'stages' => route('master.stages.store', absolute: false),
+                'documentTypes' => route('master.document-types.store', absolute: false),
                 'holidays' => route('master.holidays.store', absolute: false),
             ],
         ]);
