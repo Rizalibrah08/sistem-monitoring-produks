@@ -1,109 +1,129 @@
 ﻿# Aisha Monitor
 
-Sistem Monitoring Pendaftaran Produk untuk PT Aisha Zahra Herbalaboratories. Antarmuka prototipe merujuk PRD/SRS versi 1.3 dan wireframe; backend fondasi menggunakan Laravel 13, Inertia 3, dan React 19.
+Sistem Monitoring Pendaftaran Produk untuk PT Aisha Zahra Herbalaboratories: tiket per produk, checklist dokumen dua fase, kontrak dan pembayaran, pemantauan SLA, antrean prioritas AHP-TOPSIS, dan integrasi WhatsApp. Acuan kebutuhan adalah PRD dan SRS versi 1.3 di `docs/`.
 
-> **Status:** aplikasi utama memakai satu alur login, navigasi sesuai role, pengelolaan pengguna, dan audit berbasis database. Desain frontend tetap dipakai; modul operasional yang belum dibuat menampilkan kondisi kosong atau belum terhubung, bukan data demo. Backend bisnis untuk tiket, dokumen, pembayaran, WhatsApp, SLA, dan BPOM **belum tersedia**. Belum siap untuk produksi atau data sensitif.
+Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan MySQL 8.4.
 
-## Prasyarat
+> **Status (5 November 2026):** Inkremen 0 dan 1 selesai, Inkremen 2 berjalan. Aplikasi belum siap untuk data produksi.
 
-- PHP 8.5 dan Composer
-- Node.js dengan npm
-- MySQL 8+ atau MariaDB kompatibel; lingkungan XAMPP lokal menggunakan MariaDB 10.4. Siapkan database serta akun dengan izin migration dan trigger
-- Chromium untuk pengujian browser Playwright
+## Progres per inkremen
 
-## Setup lokal
+| Inkremen | Isi (PRD §8) | Status |
+|---|---|---|
+| 0 | Fondasi: Docker Compose, CI, deploy dua fase | Selesai; belum di-deploy ke VPS karena domain belum tersedia |
+| 1 | Login dan hak akses, master data, log audit, template Word | Selesai |
+| 2 | Tiket, dokumen, validasi | Berjalan |
+| 3 | Kontrak (MoU), tagihan, pembayaran, Finance | Belum; Midtrans menunggu persetujuan perubahan PRD/SRS v1.4 |
+| 4 | Verifikasi, gerbang fase, BPOM, uji laboratorium, tambahan data, NIE | Belum |
+| 5 | SLA hari kerja, eskalasi, WhatsApp (notifikasi, chatbot, inbox) | Belum; butuh nomor dan gateway WhatsApp |
+| 6 | Antrean prioritas AHP-TOPSIS, dasbor, laporan durasi | Belum; bobot AHP sudah tersedia di master data |
+| 7 | Pelengkap: ekspor log, lampiran chat, fitur *Could* | Belum |
+| 8 | UAT, SUS, uji ketepatan perhitungan, deploy akhir | Belum |
 
-1. Pasang dependensi dan siapkan konfigurasi lokal:
+## Fitur yang sudah berjalan
+
+**Akses dan audit**
+- Login berbasis sesi untuk tujuh role internal. Akun nonaktif ditolak, lima kali gagal mengunci akun 15 menit, dan sesi berakhir setelah 60 menit tidak aktif.
+- Hak akses diperiksa di server per role; menu hanya menampilkan halaman yang boleh dibuka.
+- Log audit hanya bisa ditambah (trigger database) dan berantai hash SHA-256, dengan filter per tiket, pengguna, aksi, dan tanggal.
+
+**Master data (Admin)**
+- Pengguna dan role, termasuk jadwal cuti.
+- Sediaan, kategori, bahan baku (R&D juga dapat menambah), dan hari libur.
+- Tahapan dan SLA hari kerja, dengan 12 tahap bawaan sesuai BR-08.
+- Jenis dokumen: fase, cakupan, sifat, PIC termasuk klien, verifikator, masa berlaku, dan umur maksimal.
+- Aturan dokumen kondisional per sediaan dan kategori dengan tanggal mulai berlaku (Admin dan RA).
+- Bobot dan jenis kriteria AHP per antrean, dengan bobot bawaan sesuai BR-25.
+- Templat Word berversi; penanda isian yang tidak dikenal ditolak.
+
+**Operasional**
+- Data klien dengan nomor WhatsApp unik yang dinormalkan ke format `62…` (Marketing dan Manajer).
+- Pembuatan tiket berkode `PRD-TAHUN-NOMOR`, dengan checklist dua fase yang disusun otomatis dari dokumen wajib dan aturan kondisional yang berlaku.
+- Daftar dan detail tiket: tahapan, checklist per fase dengan progres, dan riwayat. Marketing hanya melihat tiket kliennya.
+- Unggah dokumen berversi (PDF, JPG, PNG, DOCX, XLSX, maksimal 20 MB) dengan validasi otomatis umur dan masa berlaku. Dokumen klien dan perusahaan disimpan sebagai dokumen bersama, dan unduhan dibatasi untuk staf yang berhak melihat tiketnya.
+
+Modul yang belum dibangun tetap tampil di menu sesuai role dengan keterangan "belum tersedia", tanpa data demo.
+
+## Menjalankan secara lokal
+
+### Prasyarat
+
+- PHP 8.5 dengan ekstensi `intl`, `zip`, `bcmath`, `pdo_mysql`, dan `pdo_sqlite`, serta Composer
+- Node.js 24 dan npm
+- MySQL 8.4 atau MariaDB yang mendukung trigger
+- Docker Desktop (opsional, untuk menjalankan seluruh layanan atau tes bila PHP lokal lebih lama dari 8.5)
+
+### Langkah
+
+1. Pasang dependensi dan siapkan `.env`:
 
    ```sh
    composer install
    npm ci
-   cp .env.example .env
+   cp .env.example .env          # PowerShell: Copy-Item .env.example .env
    php artisan key:generate
    ```
 
-   Di PowerShell, gunakan `Copy-Item .env.example .env` sebagai pengganti `cp`.
+2. Atur koneksi basis data pengembangan di `.env` (`DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`). Untuk MariaDB bawaan XAMPP gunakan `DB_CONNECTION=mariadb`. Jangan memakai kredensial produksi.
 
-2. Atur `.env` untuk **database pengembangan khusus**, setidaknya:
-
-   ```dotenv
-   APP_ENV=local
-   APP_URL=http://127.0.0.1:8000
-   DB_CONNECTION=mysql
-   DB_HOST=127.0.0.1
-   DB_PORT=3306
-   DB_DATABASE=aisha_monitor
-   DB_USERNAME=aisha_monitor
-   DB_PASSWORD=isi_kredensial_lokal
-   SESSION_DRIVER=database
-   SESSION_LIFETIME=60
-   CACHE_STORE=database
-   QUEUE_CONNECTION=sync
-   ```
-
-   Buat database dan akun MySQL terlebih dahulu. Jangan menaruh kredensial produksi di repository atau membagikannya melalui chat.
-
-   Untuk MariaDB bawaan XAMPP, gunakan `DB_CONNECTION=mariadb`. Jika memakai konfigurasi default XAMPP untuk pengembangan lokal, `DB_USERNAME=root` dan `DB_PASSWORD=` dapat digunakan sesuai konfigurasi server. **Jangan gunakan root tanpa sandi untuk produksi.** Hak akun database terbatas, termasuk INSERT/SELECT saja pada log audit, harus disiapkan sebelum produksi.
-
-3. Terapkan migrasi dan, jika belum ada admin, buat admin awal. Perintah ini meminta kata sandi secara interaktif; tidak ada kata sandi bawaan. Pastikan koneksi database dan migration sukses sebelum meneruskan.
+3. Buat tabel dan data bawaan (role, tahapan, kriteria AHP), lalu buat admin awal. Kata sandi diminta secara interaktif:
 
    ```sh
    php artisan migrate --no-interaction
+   php artisan db:seed --no-interaction
    php artisan app:create-admin admin@perusahaan.test --name="Admin Aisha"
    ```
 
-   Gunakan alamat email staf yang sesuai. Command menolak menimpa akun yang sudah ada atau membuat admin awal kedua. Setelah admin dibuat, buat akun staf lainnya melalui menu **Pengguna dan role**.
-
-4. Build dan jalankan aplikasi:
+4. Build dan jalankan:
 
    ```sh
    npm run build
    php artisan serve --host=127.0.0.1 --port=8000
    ```
 
-   Buka `http://127.0.0.1:8000/login` dan masuk menggunakan akun admin yang baru dibuat. Untuk hot reload, jalankan server Laravel dan `npm run dev` pada terminal terpisah.
+   Buka `http://127.0.0.1:8000/login`. Untuk *hot reload*, jalankan `npm run dev` di terminal terpisah.
 
-## Backend yang tersedia
+### Dengan Docker Compose
 
-- Login/logout berbasis sesi Laravel; akun nonaktif atau yang tidak memiliki role internal ditolak.
-- Tujuh role internal: Admin, Marketing, R&D, QA/QC, Regulatory Affairs, Finance, dan Manajer. Hak akses diperiksa di server; pemilih role pada preview bukan mekanisme otorisasi.
-- Lima percobaan login gagal mengunci akun 15 menit; sesi berakhir setelah 60 menit tidak aktif.
-- Admin dapat mencari/filter akun staf, menetapkan satu role, mengatur status aktif dan jadwal cuti, serta memperbarui kata sandi. Pembuatan akun publik tidak tersedia.
-- Aktivitas memiliki pelaku, snapshot role, waktu WIB, sumber, perubahan, dan rantai hash SHA-256. Log dilindungi dari update/delete melalui aplikasi dan trigger database.
-- Setiap pengguna hanya menerima data sesi yang diperlukan. Pengajuan formulir dilindungi sesi dan CSRF Laravel.
+Seluruh layanan (aplikasi, Nginx, MySQL, Redis, queue, scheduler, Gotenberg) dapat dijalankan dengan `compose.yaml`. Isi `DB_PASSWORD`, `DB_ROOT_PASSWORD`, dan `HTTP_PORT` di `.env`, lalu:
 
-## Alur aplikasi utama
+```sh
+docker compose up -d --build
+docker compose exec app php artisan migrate --force
+docker compose exec app php artisan db:seed --force
+docker compose exec app php artisan app:create-admin admin@perusahaan.test --name="Admin Aisha"
+```
 
-- `/` mengarahkan pengguna ke dashboard terlindungi; pengguna yang belum masuk diarahkan ke `/login`.
-- Identitas, role, dan menu berasal dari sesi Laravel, bukan pemilih role frontend.
-- Admin menggunakan `/users` untuk membuat akun staf, memilih salah satu dari tujuh role, mengubah status aktif, mengatur cuti, dan memperbarui kata sandi.
-- `/audit` menampilkan aktivitas database bagi Admin dan Manajer.
-- Halaman tiket, dokumen, kontrak, keuangan, laporan, dan lainnya hanya muncul sesuai role. Modul yang belum diimplementasikan memiliki tabel/kondisi kosong serta tombol aksi nonaktif; tidak menyimpan perubahan simulasi.
-- WhatsApp menampilkan **Belum terhubung ke WhatsApp** sampai integrasinya benar-benar tersedia. Statistik operasional yang belum tersedia ditampilkan sebagai `—`, bukan angka demo.
-- Dashboard Admin menampilkan jumlah pengguna dan aktivitas dari database. Halaman utama tidak menggunakan fixture preview.
+## Pengujian
 
-## Preview UI
-
-UI demo lama tetap tersedia sebagai referensi terpisah di `/preview`, misalnya `/preview/tickets?role=marketing`, `/preview/bpom?role=ra`, `/preview/portal/demo-token`, dan `/preview/chatbot`. Preview bukan alur aplikasi utama dan tidak membaca/menulis data operasional. Jangan memasukkan data nyata. Rute preview hanya tersedia pada lingkungan `local`/`testing`.
-
-## Pengujian dan build
-
-Pengujian menyeluruh untuk perubahan integrasi terbaru ditunda. Perintah berikut tersedia untuk tahap pengujian berikutnya; keberhasilan build tidak menggantikan pengujian fungsi.
+Jalankan pemeriksaan berikut sebelum membuka Pull Request. CI tidak berjalan otomatis pada PR, hanya saat deploy.
 
 ```sh
 php artisan test --compact
-npm test
+vendor/bin/pint --test
+npm run test
 npm run typecheck
 npm run build
-npm run test:e2e
-composer audit
 ```
 
-Pengujian PHP memakai SQLite in-memory. Suite browser menyiapkan database SQLite sementara terpisah dan akun admin fiktif; pengujian ini tidak memerlukan MySQL produksi. Pastikan Chromium tersedia (`npx playwright install chromium`).
+Tes PHP memakai SQLite in-memory dan tidak menyentuh basis data pengembangan. Bila PHP lokal belum 8.5, jalankan tes di container `php:8.5-cli`. Uji E2E Playwright tersedia lewat `npm run test:e2e` (perlu `npx playwright install chromium`).
+
+## Dokumentasi
+
+| Dokumen | Isi |
+|---|---|
+| `docs/PRD_Sistem_Monitoring_Pendaftaran_Produk_v1.3.docx` | Kebutuhan produk, fitur, user story, tahapan rilis |
+| `docs/SRS_Sistem_Monitoring_Pendaftaran_Produk_v1.3.docx` | Kebutuhan fungsional dan nonfungsional, aturan bisnis, rancangan |
+| [`docs/PANDUAN_GIT_BRANCHING.md`](docs/PANDUAN_GIT_BRANCHING.md) | Alur kerja *trunk-based*, penamaan branch, format commit, rilis |
+| [`docs/PANDUAN_DEPLOYMENT.md`](docs/PANDUAN_DEPLOYMENT.md) | Persiapan VPS, fase test dan fase utama, rollback |
+
+## Preview UI
+
+Prototipe antarmuka lama dengan data demo tersedia di `/preview` (misalnya `/preview/tickets?role=marketing`) hanya pada lingkungan `local` dan `testing`. Preview tidak membaca atau menulis data operasional dan bukan alur aplikasi utama.
 
 ## Batasan saat ini
 
-- Koneksi MySQL pada `.env` lokal harus tersedia sebelum migrasi aplikasi dapat dijalankan. Migrasi **tidak** membuat database server dan tidak melakukan reset data.
-- Modul tiket/checklist, unggah dan versi dokumen, validasi dokumen, kontrak/tagihan/pembayaran, template Word/PDF, chatbot dan WhatsApp, SLA/scheduler, antrean AHP-TOPSIS, dan workflow BPOM belum terhubung sebagai backend operasional.
-- Sistem belum siap untuk deployment produksi, pemrosesan informasi sensitif, penggunaan pengguna eksternal, atau migrasi dari sistem lama.
-- Dokumen acuan berada di `docs/`. Gunakan PRD/SRS versi 1.3; dokumen yang diperbarui pada checkout lain perlu disinkronkan secara terpisah.
+- Belum ada integrasi WhatsApp, pembayaran, SLA terjadwal, verifikasi dokumen oleh QA/RA, maupun pengajuan BPOM.
+- Pencocokan nama produk pada PDF (bagian dari FR-71) belum tersedia.
+- Daftar sediaan, kategori, dan dokumen per sediaan masih menunggu konfirmasi Regulatory Affairs, sehingga master data perlu diisi melalui aplikasi.
+- Pemisahan akun basis data dengan hak INSERT dan SELECT saja untuk log audit (NFR-10), backup di lokasi terpisah (NFR-09), dan pemantauan ketersediaan (NFR-08) belum disiapkan.
