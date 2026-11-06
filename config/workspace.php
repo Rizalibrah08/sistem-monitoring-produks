@@ -20,18 +20,6 @@ return [
             'description' => 'Pengajuan awal calon klien dari nomor layanan.', 'empty_title' => 'Belum ada prospek',
             'columns' => ['Nama', 'Kontak', 'Gambaran produk', 'Tanggal masuk', 'Status'],
         ],
-        'verification' => [
-            'title' => 'Verifikasi dokumen', 'path' => '/verification', 'route' => 'verification.index', 'icon' => 'file-check', 'group' => 'Operasional',
-            'roles' => ['ra'],
-            'description' => 'Pemeriksaan pemakaian dokumen oleh Regulatory Affairs.', 'empty_title' => 'Belum ada dokumen untuk diverifikasi',
-            'columns' => ['Tiket', 'Dokumen', 'Versi', 'Validasi otomatis', 'Status'],
-        ],
-        'qa-review' => [
-            'title' => 'Verifikasi dokumen mutu', 'label' => 'Verifikasi mutu', 'path' => '/qa-review', 'route' => 'quality.index', 'icon' => 'shield', 'group' => 'Operasional',
-            'roles' => ['qa'],
-            'description' => 'Pemeriksaan isi dokumen mutu oleh QA/QC.', 'empty_title' => 'Belum ada dokumen mutu untuk diperiksa',
-            'columns' => ['Tiket', 'Dokumen', 'Versi', 'PIC', 'Status'],
-        ],
         'shared-documents' => [
             'title' => 'Dokumen bersama', 'path' => '/shared-documents', 'route' => 'shared_documents.index', 'icon' => 'file', 'group' => 'Operasional',
             'roles' => ['qa', 'ra'],

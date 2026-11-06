@@ -11,6 +11,7 @@ use App\Models\TicketDocument;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DocumentValidator;
+use App\Services\RepairStage;
 use App\Services\TicketReviewFlagger;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -21,7 +22,7 @@ use Throwable;
 
 class StoreDocumentVersion
 {
-    public function __construct(private DocumentValidator $validator, private AuditLogger $audit, private TicketReviewFlagger $reviews) {}
+    public function __construct(private DocumentValidator $validator, private AuditLogger $audit, private TicketReviewFlagger $reviews, private RepairStage $repair) {}
 
     /**
      * Simpan unggahan sebagai versi baru dokumen butir checklist (FR-15), jalankan validasi
@@ -84,6 +85,7 @@ class StoreDocumentVersion
                 ], source: $actor === null ? 'client' : 'web', actor: $actor, ticketCode: $item->ticket->code);
 
                 $this->reviews->flagNewVersion($document, $version, $item->ticket_id);
+                $this->repair->closeIfResolved($item->ticket);
 
                 return $version;
             }, attempts: 3);

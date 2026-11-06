@@ -11,6 +11,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentRuleController;
 use App\Http\Controllers\DocumentTemplateController;
 use App\Http\Controllers\DocumentTypeController;
+use App\Http\Controllers\DocumentVerificationController;
 use App\Http\Controllers\DocumentVersionDownloadController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
@@ -84,10 +85,13 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
         Route::post('/tickets/{ticket}/documents/{ticketDocument}/versions', [TicketDocumentVersionController::class, 'store'])->name('tickets.documents.versions.store');
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
+        Route::post('/ticket-documents/{ticketDocument}/reviews/{level}', [DocumentVerificationController::class, 'store'])->whereIn('level', ['isi', 'pemakaian'])->name('ticket-documents.reviews.store');
         Route::get('/contracts/{contract}/files/{file}', [ContractController::class, 'download'])->whereIn('file', ['word', 'pdf', 'signed'])->name('contracts.files');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
     Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
+    Route::get('/qa-review', [DocumentVerificationController::class, 'quality'])->middleware('can:documents.verify_content')->name('quality.index');
+    Route::get('/verification', [DocumentVerificationController::class, 'usage'])->middleware('can:documents.approve_usage')->name('verification.index');
     Route::middleware('can:invoices.view')->group(function (): void {
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
         Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
