@@ -16,7 +16,7 @@ use Illuminate\Validation\ValidationException;
 
 class RegistrationCompletion
 {
-    public function __construct(private AuditLogger $audit, private IssueInvoice $invoices) {}
+    public function __construct(private AuditLogger $audit, private IssueInvoice $invoices, private StaffNotifier $notifier) {}
 
     /**
      * Catat permintaan desain kemasan dari BPOM; tiket menunggu desain diunggah (FR-91).
@@ -77,6 +77,8 @@ class RegistrationCompletion
             'nie_issued_on' => $issuedOn,
             'settlement_invoice' => $settlement?->number,
         ], actor: $actor, ticketCode: $ticket->code);
+
+        $this->notifier->nieRecorded($ticket->refresh(), $actor);
     }
 
     private function registrationSubmission(Ticket $ticket): BpomSubmission

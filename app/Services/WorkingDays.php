@@ -35,6 +35,28 @@ class WorkingDays
     }
 
     /**
+     * Banyaknya hari kerja sesudah hari ini sampai tenggat (termasuk hari tenggat), untuk
+     * pengingat H-10, H-5, H-3, dan H-1 (FR-36, FR-89).
+     */
+    public function daysUntil(CarbonInterface $today, CarbonInterface $deadline): int
+    {
+        $date = CarbonImmutable::parse($today->toDateString());
+        $end = CarbonImmutable::parse($deadline->toDateString());
+        $holidays = $this->holidays($date, $end);
+        $days = 0;
+
+        while ($date->lt($end)) {
+            $date = $date->addDay();
+
+            if ($this->isWorkingDay($date, $holidays)) {
+                $days++;
+            }
+        }
+
+        return $days;
+    }
+
+    /**
      * Tenggat tahap dengan SLA sejumlah hari kerja, dihitung sebagai jam kerja 08.00–16.00
      * WIB (FR-35, BR-08). Mulai di luar jam kerja dihitung dari jam buka berikutnya.
      */

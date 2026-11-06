@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /** Waktu mulai, tenggat, dan selesai setiap tahap yang dilalui tiket (FR-34). */
-#[Fillable(['ticket_id', 'stage_id', 'started_at', 'due_at', 'finished_at', 'overdue_at', 'delay_cause'])]
+#[Fillable(['ticket_id', 'stage_id', 'started_at', 'due_at', 'finished_at', 'overdue_at', 'delay_cause', 'reminded_at'])]
 class TicketStageLog extends Model
 {
     /**
@@ -25,6 +25,7 @@ class TicketStageLog extends Model
             'due_at' => 'datetime',
             'finished_at' => 'datetime',
             'overdue_at' => 'datetime',
+            'reminded_at' => 'datetime',
         ];
     }
 

@@ -6,6 +6,7 @@ use App\ContractStatus;
 use App\Models\Contract;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\StaffNotifier;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class StoreSignedContract
 {
-    public function __construct(private AuditLogger $audit) {}
+    public function __construct(private AuditLogger $audit, private StaffNotifier $notifier) {}
 
     /**
      * Simpan kontrak bertanda tangan dari klien lewat tautan, atau dari Marketing atas nama
@@ -45,6 +46,10 @@ class StoreSignedContract
             'number' => $contract->number,
             'file' => $contract->signed_original_name,
         ], source: $actor === null ? 'client' : 'web', actor: $actor, ticketCode: $contract->ticket->code);
+
+        if ($actor === null) {
+            $this->notifier->contractSigned($contract);
+        }
 
         return $contract;
     }

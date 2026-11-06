@@ -18,7 +18,8 @@ const icons: Record<string, LucideIcon> = {
 
 export function StaffLayout({ title, children }: { title: string; children: ReactNode }) {
     const page = usePage<BackendSharedProps>();
-    const { auth, navigation, routes, flash } = page.props;
+    const { auth, navigation, routes, flash, workspace } = page.props;
+    const unread = workspace?.notifications_unread ?? 0;
     const currentPath = page.url.split('?')[0];
     const [mobileOpen, setMobileOpen] = useState(false);
     const groups = [...new Set(navigation.map((item) => item.group ?? 'Ruang kerja'))];
@@ -83,7 +84,7 @@ export function StaffLayout({ title, children }: { title: string; children: Reac
                         <Search size={17} /><input aria-label="Pencarian global" placeholder="Pencarian tiket belum tersedia" disabled />
                     </div>
                     <div className="topbar-actions">
-                        <Link href={routes.notifications} className="icon-button" aria-label="Buka notifikasi"><Bell size={19} /></Link>
+                        <Link href={routes.notifications} className="icon-button relative" aria-label={unread ? `Buka notifikasi, ${unread} belum dibaca` : 'Buka notifikasi'}><Bell size={19} />{unread > 0 && <span className="notification-dot" />}</Link>
                         <span className="topbar-divider" />
                         <Avatar initials={initials} small /><span className="hidden md:inline-flex"><Badge tone="neutral" dot={false}>{user.role_label}</Badge></span>
                     </div>

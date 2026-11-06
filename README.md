@@ -4,7 +4,7 @@ Sistem Monitoring Pendaftaran Produk untuk PT Aisha Zahra Herbalaboratories: tik
 
 Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan MySQL 8.4.
 
-> **Status (6 November 2026):** Inkremen 0–4 selesai. Aplikasi belum siap untuk data produksi.
+> **Status (6 November 2026):** Inkremen 0–4 selesai; Inkremen 5 berjalan (SLA dan notifikasi aplikasi selesai, WhatsApp menunggu gateway). Aplikasi belum siap untuk data produksi.
 
 ## Progres per inkremen
 
@@ -15,7 +15,7 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 | 2 | Tiket, dokumen, validasi | Selesai; pencocokan nama produk pada PDF menunggu persetujuan dependensi, notifikasi ke RA menunggu Inkremen 5 |
 | 3 | Kontrak (MoU), tagihan, pembayaran, Finance | Selesai; pembayaran lewat Midtrans Snap, pengingat jatuh tempo via WhatsApp menunggu Inkremen 5 |
 | 4 | Verifikasi, gerbang fase, BPOM, uji laboratorium, tambahan data, NIE | Selesai; pengingat tenggat BPOM dan notifikasi ke PIC/klien menunggu Inkremen 5 |
-| 5 | SLA hari kerja, eskalasi, WhatsApp (notifikasi, chatbot, inbox) | Belum; butuh nomor dan gateway WhatsApp |
+| 5 | SLA hari kerja, eskalasi, WhatsApp (notifikasi, chatbot, inbox) | Berjalan; SLA, eskalasi, dan pusat notifikasi selesai; WhatsApp butuh nomor dan gateway |
 | 6 | Antrean prioritas AHP-TOPSIS, dasbor, laporan durasi | Belum; bobot AHP sudah tersedia di master data |
 | 7 | Pelengkap: ekspor log, lampiran chat, fitur *Could* | Belum |
 | 8 | UAT, SUS, uji ketepatan perhitungan, deploy akhir | Belum |
@@ -59,6 +59,12 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 - Tambahan data BPOM TD1–TD3 bertenggat 60 hari kerja, dengan peringatan risiko penolakan pada TD3.
 - Uji laboratorium eksternal sejajar dengan pra-registrasi, termasuk analisis ulang; fase registrasi terbuka setelah hasil pra-registrasi dan LHU yang sesuai tercatat.
 - Desain kemasan dan input NIE yang menutup tiket serta menerbitkan tagihan pelunasan.
+
+**SLA dan notifikasi**
+- Tenggat setiap tahap dihitung otomatis dalam jam kerja 08.00–16.00 WIB tanpa akhir pekan dan hari libur; tahap yang menunggu BPOM atau pihak luar tidak dihitung.
+- `sla:check` (tiap jam) menandai tahap terlambat beserta penyebabnya (staf atau klien) dan mengirim eskalasi ke Manajer atau informasi ke Marketing.
+- `notifications:deadlines` (tiap jam) mengingatkan tenggat tahap H-1, tambahan data BPOM H-3/H-1, dan pengajuan registrasi H-10/H-5/H-1.
+- Pusat notifikasi (ikon lonceng) untuk dokumen dikembalikan atau menunggu verifikasi, kontrak bertanda tangan, tagihan lunas, NIE, dan tiket perlu ditinjau.
 
 Modul yang belum dibangun tetap tampil di menu sesuai role dengan keterangan "belum tersedia", tanpa data demo.
 

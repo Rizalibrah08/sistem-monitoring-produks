@@ -17,7 +17,7 @@ class MidtransSnap
     /** Lama transaksi Snap berlaku sebelum klien perlu memulai pembayaran baru. */
     public const EXPIRY_HOURS = 24;
 
-    public function __construct(private AuditLogger $audit) {}
+    public function __construct(private AuditLogger $audit, private StaffNotifier $notifier) {}
 
     /**
      * Mulai atau lanjutkan pembayaran tagihan lewat halaman Snap (FR-76). Transaksi yang
@@ -146,6 +146,7 @@ class MidtransSnap
                 'amount' => $payment->gross_amount,
                 'payment_type' => $payment->payment_type,
             ], source: 'system', ticketCode: $invoice->ticket->code);
+            $this->notifier->invoicePaid($invoice);
 
             return;
         }

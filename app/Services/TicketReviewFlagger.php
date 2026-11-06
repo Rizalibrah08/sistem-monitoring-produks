@@ -16,7 +16,7 @@ class TicketReviewFlagger
     /** Batas hari menjelang kedaluwarsa yang memicu peninjauan (FR-20). */
     public const EXPIRY_WINDOW_DAYS = 30;
 
-    public function __construct(private AuditLogger $audit) {}
+    public function __construct(private AuditLogger $audit, private StaffNotifier $notifier) {}
 
     /**
      * Tandai tiket aktif lain yang memakai dokumen bersama ini setelah dokumen mendapat
@@ -81,6 +81,7 @@ class TicketReviewFlagger
                 'document_type' => $document->documentType->name,
                 'version' => $version->version,
             ], source: 'system', ticketCode: $ticket->code);
+            $this->notifier->ticketNeedsReview($ticket, $message);
         }
 
         return $tickets->count();

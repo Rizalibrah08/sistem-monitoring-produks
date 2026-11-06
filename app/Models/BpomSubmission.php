@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * dikunci di tabel pivot sehingga tidak ikut berubah saat dokumen bersama mendapat versi
  * baru (BR-06).
  */
-#[Fillable(['ticket_id', 'phase', 'submitted_on', 'pnbp', 'status', 'result_on', 'result_path', 'result_original_name', 'registration_deadline', 'recorded_by'])]
+#[Fillable(['ticket_id', 'phase', 'submitted_on', 'pnbp', 'status', 'result_on', 'result_path', 'result_original_name', 'registration_deadline', 'reminded_days', 'recorded_by'])]
 class BpomSubmission extends Model
 {
     /**
@@ -33,6 +33,7 @@ class BpomSubmission extends Model
             'status' => SubmissionStatus::class,
             'result_on' => 'date',
             'registration_deadline' => 'date',
+            'reminded_days' => 'integer',
             'recorded_by' => 'integer',
         ];
     }
