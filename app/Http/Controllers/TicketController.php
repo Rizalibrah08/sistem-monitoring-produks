@@ -56,6 +56,7 @@ class TicketController extends Controller
         'ticket.packaging_requested' => 'Desain kemasan diminta',
         'ticket.packaging_uploaded' => 'Desain kemasan diunggah',
         'ticket.nie_recorded' => 'NIE terbit',
+        'stage.overdue' => 'Tahap melewati tenggat',
         'ticket.materials_updated' => 'Bahan baku diperbarui',
         'upload_link.created' => 'Tautan unggah klien dibuat',
         'sample.recorded' => 'Keputusan sampel dicatat',
@@ -85,6 +86,7 @@ class TicketController extends Controller
         $tickets = Ticket::query()->visibleTo($user)
             ->with(['client', 'dosageForm', 'category', 'currentStage', 'documents'])
             ->withExists(['reviews as needs_review' => fn (Builder $query) => $query->whereNull('resolved_at')])
+            ->withExists(['stageLogs as is_late' => fn (Builder $query) => $query->whereNull('finished_at')->whereNotNull('overdue_at')])
             ->when(filled($search), function (Builder $query) use ($search): void {
                 $query->where(function (Builder $query) use ($search): void {
                     $query->where('code', 'like', "%{$search}%")
@@ -108,6 +110,7 @@ class TicketController extends Controller
                 'status_label' => $ticket->status->label(),
                 'current_stage' => $ticket->currentStage?->name,
                 'needs_review' => (bool) $ticket->needs_review,
+                'is_late' => (bool) $ticket->is_late,
                 'progress' => $this->progress($ticket->documents, $ticket->phase === StagePhase::Initial ? StagePhase::PreRegistration : $ticket->phase),
                 'created_at' => $ticket->created_at?->format('d/m/Y'),
                 'show_url' => route('tickets.show', $ticket, absolute: false),
@@ -304,6 +307,8 @@ class TicketController extends Controller
                 'started_at' => $log->started_at->format('d/m/Y H:i'),
                 'due_at' => $log->due_at?->format('d/m/Y H:i'),
                 'finished_at' => $log->finished_at?->format('d/m/Y H:i'),
+                'overdue' => $log->overdue_at !== null,
+                'delay_cause' => $log->delay_cause,
             ])->values(),
             'history' => Activity::query()->where('ticket_code', $ticket->code)->orderByDesc('id')->limit(100)->get()
                 ->map(fn (Activity $entry): array => [

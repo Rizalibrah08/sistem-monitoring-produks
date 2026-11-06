@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('documents:flag-expiring')->dailyAt('06:00')->withoutOverlapping();
 Schedule::command('bpom:expire-pre-registrations')->dailyAt('00:30')->withoutOverlapping();
+Schedule::command('sla:check')->hourly()->withoutOverlapping();

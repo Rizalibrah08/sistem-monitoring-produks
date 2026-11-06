@@ -449,7 +449,7 @@ describe('clients', () => {
     });
 });
 
-const ticketRow = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', needs_review: true, progress: 50, created_at: '05/11/2026', show_url: '/tickets/5' };
+const ticketRow = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', needs_review: true, is_late: true, progress: 50, created_at: '05/11/2026', show_url: '/tickets/5' };
 const ticketListProps = {
     tickets: { data: [ticketRow], current_page: 1, last_page: 1, total: 1, prev_page_url: null, next_page_url: null },
     filters: { search: '', phase: '', status: '' },
@@ -477,6 +477,7 @@ describe('tickets', () => {
         expect(screen.getByText('Kapsul Jahe Merah')).toBeInTheDocument();
         expect(screen.getByText('50%')).toBeInTheDocument();
         expect(screen.getByText('Perlu ditinjau')).toBeInTheDocument();
+        expect(screen.getByText('Terlambat')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Buat tiket' })).not.toBeInTheDocument();
     });
 
