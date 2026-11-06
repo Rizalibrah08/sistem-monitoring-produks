@@ -17,7 +17,8 @@ class CreateTicket
 
     /**
      * Buat tiket berkode unik PRD-TAHUN-NOMOR di fase awal, catat tahap pertama,
-     * dan susun checklist dokumen kedua fase (FR-10, FR-11, FR-34).
+     * susun checklist dokumen kedua fase, dan tautkan dokumen bersama
+     * yang masih berlaku (FR-10, FR-11, FR-12, FR-34).
      *
      * @param  array{client_id: int|string, product_name: string, dosage_form_id: int|string, category_id: int|string}  $data
      */
@@ -40,14 +41,15 @@ class CreateTicket
                 $ticket->stageLogs()->create(['stage_id' => $firstStage->id, 'started_at' => $ticket->created_at]);
             }
 
-            $documentCount = $this->checklist->build($ticket->load(['dosageForm', 'category']));
+            $checklist = $this->checklist->build($ticket->load(['dosageForm', 'category']));
 
             $this->audit->record('ticket.created', $ticket, after: [
                 'client_id' => $ticket->client_id,
                 'product_name' => $ticket->product_name,
                 'dosage_form_id' => $ticket->dosage_form_id,
                 'category_id' => $ticket->category_id,
-                'checklist_items' => $documentCount,
+                'checklist_items' => $checklist['items'],
+                'linked_shared_documents' => $checklist['linked'],
             ], actor: $actor, ticketCode: $ticket->code);
 
             return $ticket;
