@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ClientController;
+use App\Http\Controllers\ClientUploadController;
 use App\Http\Controllers\CriterionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentRuleController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\StageController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketDocumentVersionController;
 use App\Http\Controllers\TicketMaterialController;
+use App\Http\Controllers\UploadTokenController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceModuleController;
 use App\Http\Middleware\EnsureActiveStaffSession;
@@ -27,6 +29,9 @@ use App\Models\Criterion;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard')->name('home');
+
+Route::get('/unggah/{token}', [ClientUploadController::class, 'show'])->middleware('throttle:60,1')->name('client-uploads.show');
+Route::post('/unggah/{token}/dokumen/{ticketDocument}', [ClientUploadController::class, 'store'])->middleware('throttle:20,1')->name('client-uploads.store');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -71,6 +76,10 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
+    Route::middleware('can:upload_links.manage')->group(function (): void {
+        Route::post('/tickets/{ticket}/upload-links', [UploadTokenController::class, 'store'])->name('tickets.upload-links.store');
+        Route::delete('/tickets/{ticket}/upload-links/{uploadToken}', [UploadTokenController::class, 'destroy'])->name('tickets.upload-links.destroy');
+    });
     Route::put('/tickets/{ticket}/materials', [TicketMaterialController::class, 'update'])->middleware('can:ticket_materials.manage')->name('tickets.materials.update');
 
     Route::middleware('can:clients.manage')->group(function (): void {
