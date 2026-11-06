@@ -4,7 +4,7 @@ Sistem Monitoring Pendaftaran Produk untuk PT Aisha Zahra Herbalaboratories: tik
 
 Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan MySQL 8.4.
 
-> **Status (5 November 2026):** Inkremen 0 dan 1 selesai, Inkremen 2 berjalan. Aplikasi belum siap untuk data produksi.
+> **Status (6 November 2026):** Inkremen 0, 1, dan 2 selesai. Aplikasi belum siap untuk data produksi.
 
 ## Progres per inkremen
 
@@ -12,7 +12,7 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 |---|---|---|
 | 0 | Fondasi: Docker Compose, CI, deploy dua fase | Selesai; belum di-deploy ke VPS karena domain belum tersedia |
 | 1 | Login dan hak akses, master data, log audit, template Word | Selesai |
-| 2 | Tiket, dokumen, validasi | Berjalan |
+| 2 | Tiket, dokumen, validasi | Selesai; pencocokan nama produk pada PDF menunggu persetujuan dependensi, notifikasi ke RA menunggu Inkremen 5 |
 | 3 | Kontrak (MoU), tagihan, pembayaran, Finance | Belum; Midtrans menunggu persetujuan perubahan PRD/SRS v1.4 |
 | 4 | Verifikasi, gerbang fase, BPOM, uji laboratorium, tambahan data, NIE | Belum |
 | 5 | SLA hari kerja, eskalasi, WhatsApp (notifikasi, chatbot, inbox) | Belum; butuh nomor dan gateway WhatsApp |
@@ -40,7 +40,12 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 - Data klien dengan nomor WhatsApp unik yang dinormalkan ke format `62…` (Marketing dan Manajer).
 - Pembuatan tiket berkode `PRD-TAHUN-NOMOR`, dengan checklist dua fase yang disusun otomatis dari dokumen wajib dan aturan kondisional yang berlaku.
 - Daftar dan detail tiket: tahapan, checklist per fase dengan progres, dan riwayat. Marketing hanya melihat tiket kliennya.
-- Unggah dokumen berversi (PDF, JPG, PNG, DOCX, XLSX, maksimal 20 MB) dengan validasi otomatis umur dan masa berlaku. Dokumen klien dan perusahaan disimpan sebagai dokumen bersama, dan unduhan dibatasi untuk staf yang berhak melihat tiketnya.
+- Unggah dokumen berversi (PDF, JPG, PNG, DOCX, XLSX, maksimal 20 MB) dengan validasi otomatis umur dan masa berlaku. Dokumen klien, bahan baku, dan perusahaan disimpan sebagai dokumen bersama, dan unduhan dibatasi untuk staf yang berhak melihat tiketnya.
+- Dokumen bersama yang masih berlaku langsung tertaut ke tiket baru.
+- R&D memilih bahan baku tiket dari master; dokumen asal peredaran bahan yang ada langsung tertaut, bahan tanpa dokumen menjadi butir checklist.
+- Persetujuan dan revisi sampel oleh Marketing dengan nomor revisi; sampel disetujui memindahkan tiket ke tahap Kontrak (MoU).
+- Tautan unggah klien bertoken per tiket dan fase (bawaan 14 hari) di `/unggah/{token}`, tanpa login dan hanya untuk dokumen bagian klien.
+- Tiket aktif ditandai perlu ditinjau saat dokumen bersama yang dipakainya mendapat versi baru atau kedaluwarsa dalam 30 hari (command harian `documents:flag-expiring`); RA menandai sudah ditinjau.
 
 Modul yang belum dibangun tetap tampil di menu sesuai role dengan keterangan "belum tersedia", tanpa data demo.
 
