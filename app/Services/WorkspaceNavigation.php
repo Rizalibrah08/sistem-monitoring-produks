@@ -22,6 +22,10 @@ class WorkspaceNavigation
             $items[] = ['id' => 'priorities', 'label' => 'Antrean prioritas', 'href' => route('priorities.index', absolute: false), 'icon' => 'activity', 'group' => 'Ruang kerja', 'available' => true];
         }
 
+        if ($user->hasAnyRole(['rnd', 'qa', 'ra'])) {
+            $items[] = ['id' => 'tasks', 'label' => 'Tugas dokumen', 'href' => route('tasks.index', absolute: false), 'icon' => 'clipboard', 'group' => 'Ruang kerja', 'available' => true];
+        }
+
         foreach (config('workspace.modules', []) as $key => $module) {
             if (($module['navigation'] ?? true) && $user->hasAnyRole($module['roles'])) {
                 $items[] = [
@@ -59,6 +63,11 @@ class WorkspaceNavigation
 
         if ($user->can('contracts.manage')) {
             $items[] = ['id' => 'contracts', 'label' => 'Kontrak', 'href' => route('contracts.index', absolute: false), 'icon' => 'file', 'group' => 'Operasional', 'available' => true];
+        }
+
+        if ($user->can('reports.view')) {
+            $items[] = ['id' => 'reports', 'label' => 'Laporan durasi', 'href' => route('reports.index', absolute: false), 'icon' => 'clock', 'group' => 'Pemantauan', 'available' => true];
+            $items[] = ['id' => 'escalations', 'label' => 'Eskalasi', 'href' => route('escalations.index', absolute: false), 'icon' => 'bell', 'group' => 'Pemantauan', 'available' => true];
         }
 
         if ($user->can('clients.manage')) {

@@ -2,12 +2,6 @@
 
 return [
     'modules' => [
-        'tasks' => [
-            'title' => 'Tugas dokumen', 'path' => '/tasks', 'route' => 'tasks.index', 'icon' => 'clipboard', 'group' => 'Ruang kerja',
-            'roles' => ['rnd', 'qa', 'ra'],
-            'description' => 'Dokumen yang perlu disiapkan, diperiksa, atau ditanggapi.', 'empty_title' => 'Belum ada tugas dokumen',
-            'columns' => ['Tiket', 'Dokumen', 'Fase', 'Tenggat', 'Status'],
-        ],
         'prospects' => [
             'title' => 'Prospek dari chatbot', 'label' => 'Prospek', 'path' => '/prospects', 'route' => 'prospects.index', 'icon' => 'sprout', 'group' => 'Operasional',
             'roles' => ['marketing'],
@@ -43,18 +37,6 @@ return [
             'roles' => ['marketing'], 'navigation' => false,
             'description' => 'Mulai percakapan dengan klien melalui nomor Marketing.', 'empty_title' => 'Belum terhubung ke WhatsApp',
             'integration' => 'whatsapp', 'actions' => ['Kirim pesan'],
-        ],
-        'reports' => [
-            'title' => 'Laporan durasi', 'path' => '/reports', 'route' => 'reports.index', 'icon' => 'clock', 'group' => 'Pemantauan',
-            'roles' => ['manager'],
-            'description' => 'Durasi internal, waktu menunggu klien, dan waktu pihak luar.', 'empty_title' => 'Belum ada data laporan durasi',
-            'columns' => ['Tahap', 'Jumlah tiket', 'Rata-rata', 'Persentil ke-75'], 'actions' => ['Ekspor laporan'],
-        ],
-        'escalations' => [
-            'title' => 'Daftar eskalasi', 'label' => 'Eskalasi', 'path' => '/escalations', 'route' => 'escalations.index', 'icon' => 'bell', 'group' => 'Pemantauan',
-            'roles' => ['manager'],
-            'description' => 'Tahapan internal yang melampaui SLA hari kerja.', 'empty_title' => 'Belum ada data eskalasi',
-            'columns' => ['Tiket', 'Tahap', 'PIC', 'Tenggat', 'Status'],
         ],
         'sync-checklist' => [
             'title' => 'Sinkronisasi checklist', 'path' => '/sync-checklist', 'route' => 'checklist_sync.index', 'icon' => 'clipboard', 'group' => 'Operasional',
