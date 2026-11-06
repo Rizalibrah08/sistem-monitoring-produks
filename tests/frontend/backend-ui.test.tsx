@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import Login from '../../resources/js/Pages/Auth/Login';
+import Audit from '../../resources/js/Pages/Backend/Audit';
 import Bpom from '../../resources/js/Pages/Backend/Bpom';
 import Clients from '../../resources/js/Pages/Backend/Clients';
 import Contracts from '../../resources/js/Pages/Backend/Contracts';
@@ -1082,5 +1083,29 @@ describe('duration report', () => {
         expect(screen.getByText('Kontrak (MoU)')).toBeInTheDocument();
         expect(screen.getByText('1.5')).toHaveClass('text-red-700');
         expect(screen.getByRole('link', { name: 'Ekspor CSV' })).toHaveAttribute('href', '/reports/export?from=2026-08-01&until=2026-11-05');
+    });
+});
+
+describe('audit log', () => {
+    it('offers exports with the active filters and reports a broken hash chain', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url) => {
+            requests.push(url);
+        });
+        renderPage(
+            <Audit entries={{ data: [], current_page: 1, last_page: 1, total: 0, prev_page_url: null, next_page_url: null }} actors={[]}
+                filters={{ actor_id: '', event: '', ticket_code: 'PRD-2026-0001', date_from: '', date_to: '' }}
+                urls={{ csv: '/audit/export/csv?ticket_code=PRD-2026-0001', pdf: '/audit/export/pdf?ticket_code=PRD-2026-0001', verify: '/audit/verify' }}
+                integrity={{ checked: 12, valid: false, mismatches: [{ id: 7, event: 'ticket.created', created_at: '05/11/2026 10:00:00', reason: 'isi tidak sesuai hash' }], verified_at: '06/11/2026 09:00:00' }} />,
+            { ...ticketRoutes, routes: { ...ticketRoutes.routes, audit: '/audit' }, auth: { user: admin, permissions: ['audit.view', 'users.manage'] } },
+        );
+
+        expect(screen.getByRole('link', { name: 'Ekspor CSV' })).toHaveAttribute('href', '/audit/export/csv?ticket_code=PRD-2026-0001');
+        expect(screen.getByRole('link', { name: 'Ekspor PDF' })).toHaveAttribute('href', '/audit/export/pdf?ticket_code=PRD-2026-0001');
+        expect(screen.getByText(/#7 ticket.created/)).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Verifikasi integritas' }));
+
+        expect(requests).toEqual(['/audit/verify']);
     });
 });
