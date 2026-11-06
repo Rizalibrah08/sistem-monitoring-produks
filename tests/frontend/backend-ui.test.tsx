@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import Login from '../../resources/js/Pages/Auth/Login';
 import Clients from '../../resources/js/Pages/Backend/Clients';
 import Contracts from '../../resources/js/Pages/Backend/Contracts';
+import Invoices from '../../resources/js/Pages/Backend/Invoices';
 import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
@@ -455,7 +456,7 @@ const ticketListProps = {
 const ticketRoutes = { routes: { tickets: '/tickets' } };
 const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links', samples: '/tickets/5/samples', resolve_reviews: '/tickets/5/reviews/resolve', contract_store: '/contracts' };
 const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false, resolve_reviews: false, manage_contract: false, create_contract: false };
-const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null };
+const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null, invoices: [] };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
 type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
@@ -597,6 +598,7 @@ describe('ticket documents', () => {
                 reviews={[]}
                 contract={null}
                 contractOptions={null}
+                invoices={[]}
             />,
             { ...ticketRoutes, auth: { user: { ...staff, role: 'rnd', role_label: 'R&D' }, permissions: ['tickets.view', 'ticket_materials.manage', 'materials.create'] } },
         );
@@ -662,6 +664,7 @@ describe('client upload links', () => {
                 expires_at="19/11/2026 10:00"
                 progress={50}
                 contract={null}
+                invoices={[]}
                 documents={[
                     { id: 4, name: 'Surat kuasa', status: 'disetujui', status_label: 'Disetujui', revision_reason: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: '/unggah/abc/dokumen/4', current_version: { version: 1, original_name: 'kuasa.pdf', uploaded_at: '05/11/2026 10:00' } },
                     { id: 5, name: 'Sertifikat merek', status: 'perlu_revisi', status_label: 'Perlu revisi', revision_reason: 'Dokumen sudah kedaluwarsa pada 01/10/2026.', requires_issued_at: false, requires_expires_at: true, can_upload: true, upload_url: '/unggah/abc/dokumen/5', current_version: null },
@@ -822,6 +825,7 @@ describe('contracts', () => {
                 expires_at="19/11/2026 10:00"
                 progress={0}
                 documents={[]}
+                invoices={[]}
                 contract={{ number: 'KTR/2026/0001', status: 'dikirim', status_label: 'Dikirim', signed_at: null, can_sign: true, download_url: '/unggah/abc/kontrak', upload_url: '/unggah/abc/kontrak' }}
             />,
         );
@@ -833,5 +837,43 @@ describe('contracts', () => {
         expect(requests).toHaveLength(1);
         expect(requests[0].url).toBe('/unggah/abc/kontrak');
         expect((requests[0].data.file as File).name).toBe('kontrak-ttd.pdf');
+    });
+});
+
+describe('invoices', () => {
+    const invoice = { id: 9, number: 'INV/2026/0001', term_label: 'DP 50%', amount: 15000000, due_date: '01/11/2026', status: 'terbit', status_label: 'Belum dibayar', is_overdue: true, paid_at: null, payment_type: null, ticket_code: 'PRD-2026-0001', client: 'Nusantara Herbal', ticket_url: '/tickets/5' };
+
+    it('shows finance the outstanding total and flags overdue invoices', () => {
+        renderPage(
+            <Invoices invoices={{ data: [invoice], current_page: 1, last_page: 1, total: 1, prev_page_url: null, next_page_url: null }} filters={{ search: '', status: '' }} statuses={[{ value: 'lunas', label: 'Lunas' }]} summary={{ outstanding: 15000000, unpaid_count: 1, overdue_count: 1 }} />,
+            { ...ticketRoutes, auth: { user: { ...staff, role: 'finance', role_label: 'Finance' }, permissions: ['invoices.view'] } },
+        );
+
+        expect(screen.getAllByText('Rp15.000.000').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('Lewat jatuh tempo').length).toBeGreaterThan(0);
+        expect(screen.getByRole('link', { name: 'PRD-2026-0001' })).toHaveAttribute('href', '/tickets/5');
+    });
+
+    it('lets the client start a Midtrans payment for an unpaid invoice', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url) => {
+            requests.push(url);
+        });
+        renderPage(
+            <UploadLink
+                ticket={{ code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', phase_label: 'Pra-registrasi', is_active: true }}
+                expires_at="19/11/2026 10:00"
+                progress={0}
+                documents={[]}
+                contract={null}
+                invoices={[{ ...invoice, is_overdue: false, pay_url: '/unggah/abc/tagihan/9/bayar' }, { ...invoice, id: 10, number: 'INV/2026/0002', status: 'lunas', status_label: 'Lunas', is_overdue: false, paid_at: '02/11/2026 10:00', pay_url: null }]}
+            />,
+        );
+
+        expect(screen.getAllByRole('button', { name: 'Bayar sekarang' })).toHaveLength(1);
+        await user.click(screen.getByRole('button', { name: 'Bayar sekarang' }));
+
+        expect(requests).toEqual(['/unggah/abc/tagihan/9/bayar']);
     });
 });

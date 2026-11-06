@@ -83,6 +83,12 @@ class Ticket extends Model
         return $this->hasMany(TicketDocument::class);
     }
 
+    /** @return HasMany<Invoice, $this> */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
     /** @return HasOne<Contract, $this> */
     public function contract(): HasOne
     {

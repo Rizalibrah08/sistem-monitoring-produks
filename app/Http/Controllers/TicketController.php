@@ -10,6 +10,7 @@ use App\Models\Category;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\DosageForm;
+use App\Models\Invoice;
 use App\Models\Material;
 use App\Models\SampleApproval;
 use App\Models\Ticket;
@@ -45,6 +46,9 @@ class TicketController extends Controller
         'contract.sent' => 'Kontrak dikirim',
         'contract.signed_uploaded' => 'Kontrak bertanda tangan diunggah',
         'contract.confirmed' => 'Kontrak dikonfirmasi aktif',
+        'invoice.issued' => 'Tagihan diterbitkan',
+        'invoice.payment_started' => 'Klien memulai pembayaran',
+        'invoice.paid' => 'Tagihan lunas',
         'upload_link.revoked' => 'Tautan unggah klien dicabut',
     ];
 
@@ -117,7 +121,7 @@ class TicketController extends Controller
 
     public function show(Request $request, Ticket $ticket): Response
     {
-        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials', 'sampleApprovals.recorder', 'contract.documentTemplate']);
+        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials', 'sampleApprovals.recorder', 'contract.documentTemplate', 'invoices.ticket.client']);
         $user = $request->user();
         abort_unless($ticket->isVisibleTo($user), 403);
         $canManageMaterials = $user->can('ticket_materials.manage');
@@ -222,6 +226,7 @@ class TicketController extends Controller
                     'confirm' => route('contracts.confirm', $contract, absolute: false),
                 ],
             ],
+            'invoices' => $ticket->invoices->sortBy('id')->map(fn (Invoice $invoice): array => InvoiceController::row($invoice))->values(),
             'contractOptions' => $canManageContract ? [
                 'templates' => ContractController::templateOptions(),
                 'defaults' => ['dp_percent' => Contract::DEFAULT_DP_PERCENT, 'payment_due_days' => Contract::DEFAULT_PAYMENT_DUE_DAYS],

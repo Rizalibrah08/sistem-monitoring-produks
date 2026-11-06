@@ -35,6 +35,10 @@ class WorkspaceNavigation
             $items[] = ['id' => 'samples', 'label' => 'Persetujuan sampel', 'href' => route('samples.index', absolute: false), 'icon' => 'flask', 'group' => 'Operasional', 'available' => true];
         }
 
+        if ($user->can('invoices.view')) {
+            $items[] = ['id' => 'invoices', 'label' => 'Tagihan', 'href' => route('invoices.index', absolute: false), 'icon' => 'file-clock', 'group' => 'Operasional', 'available' => true];
+        }
+
         if ($user->can('contracts.manage')) {
             $items[] = ['id' => 'contracts', 'label' => 'Kontrak', 'href' => route('contracts.index', absolute: false), 'icon' => 'file', 'group' => 'Operasional', 'available' => true];
         }

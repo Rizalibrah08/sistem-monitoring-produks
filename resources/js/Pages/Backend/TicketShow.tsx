@@ -6,6 +6,7 @@ import { Badge, Button, EmptyState, Field, InfoBox, Modal, Panel, Progress, Sele
 import { BackendLayout } from '../../layouts/backend-layout';
 import { sampleTones } from './Samples';
 import { contractTones } from './Contracts';
+import { InvoiceStatus, type InvoiceRow } from './Invoices';
 import { ContractForm, rupiah, type ContractDefaults, type ContractOption } from '../../components/contract-form';
 
 type TicketDetail = {
@@ -64,7 +65,7 @@ type UploadLinks = { default_days: number; max_days: number; active: UploadLink[
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions, invoices }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -78,6 +79,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     reviews: ReviewEntry[];
     contract: ContractDetail | null;
     contractOptions: ContractOptions | null;
+    invoices: InvoiceRow[];
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -117,6 +119,12 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                 </Panel>
             </div>
             {(contract || can.create_contract) && <div className="mt-5"><ContractPanel ticketId={ticket.id} contract={contract} options={contractOptions} can={can} storeUrl={urls.contract_store} /></div>}
+            {invoices.length > 0 && <div className="mt-5"><Panel title="Tagihan" description="Dibayar klien melalui Midtrans; status lunas tercatat otomatis. Tagihan DP tidak menahan proses.">
+                <ul className="panel-body space-y-2 text-sm">{invoices.map((invoice) => <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span><strong>{invoice.number}</strong> · {invoice.term_label} · {rupiah(invoice.amount)} <span className="text-gray-500">· jatuh tempo {invoice.due_date}{invoice.paid_at ? ` · lunas ${invoice.paid_at}` : ''}</span></span>
+                    <InvoiceStatus invoice={invoice} />
+                </li>)}</ul>
+            </Panel></div>}
             <div className="mt-5"><SamplePanel samples={samples} canRecord={can.record_sample} storeUrl={urls.samples} /></div>
             {uploadLinks && <div className="mt-5"><UploadLinkPanel links={uploadLinks} storeUrl={urls.upload_links} /></div>}
             <div className="mt-5">

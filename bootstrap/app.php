@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Nginx hanya dapat dijangkau Caddy melalui jaringan Docker internal, sehingga header X-Forwarded-* dapat dipercaya.
         $middleware->trustProxies(at: '*');
         $middleware->web(append: [HandleInertiaRequests::class]);
+        $middleware->validateCsrfTokens(except: ['midtrans/notification']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

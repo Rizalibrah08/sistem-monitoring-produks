@@ -14,8 +14,10 @@ use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\DocumentVersionDownloadController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\MaterialController;
+use App\Http\Controllers\MidtransNotificationController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\SampleApprovalController;
 use App\Http\Controllers\StageController;
@@ -36,6 +38,8 @@ Route::redirect('/', '/dashboard')->name('home');
 Route::get('/unggah/{token}', [ClientUploadController::class, 'show'])->middleware('throttle:60,1')->name('client-uploads.show');
 Route::get('/unggah/{token}/kontrak', [ClientUploadController::class, 'contract'])->middleware('throttle:60,1')->name('client-uploads.contract');
 Route::post('/unggah/{token}/kontrak', [ClientUploadController::class, 'signContract'])->middleware('throttle:20,1')->name('client-uploads.contract.signed');
+Route::post('/unggah/{token}/tagihan/{invoice}/bayar', [ClientUploadController::class, 'pay'])->middleware('throttle:10,1')->name('client-uploads.invoices.pay');
+Route::post('/midtrans/notification', MidtransNotificationController::class)->middleware('throttle:120,1')->name('midtrans.notification');
 Route::post('/unggah/{token}/dokumen/{ticketDocument}', [ClientUploadController::class, 'store'])->middleware('throttle:20,1')->name('client-uploads.store');
 
 Route::middleware('guest')->group(function (): void {
@@ -83,6 +87,7 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
     Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
+    Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('can:invoices.view')->name('invoices.index');
     Route::middleware('can:contracts.manage')->group(function (): void {
         Route::get('/contracts', [ContractController::class, 'index'])->name('contracts.index');
         Route::post('/contracts', [ContractController::class, 'store'])->name('contracts.store');
