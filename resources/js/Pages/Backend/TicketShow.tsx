@@ -48,7 +48,7 @@ type ChecklistDocument = {
     current_version: DocumentVersion | null;
 };
 type ChecklistPhase = { phase: string; label: string; progress: number; documents: ChecklistDocument[] };
-type StageEntry = { name: string; started_at: string; due_at: string | null; finished_at: string | null };
+type StageEntry = { name: string; started_at: string; due_at: string | null; finished_at: string | null; overdue?: boolean; delay_cause?: string | null };
 type HistoryEntry = { id: number; event: string; label: string; actor: string; created_at: string | null };
 type TicketMaterial = { id: number; name: string; supplier: string | null };
 type Option = { value: number; label: string };
@@ -130,7 +130,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                 <Panel title="Tahapan">
                     <ol className="panel-body space-y-3">
                         {stages.map((stage, index) => <li key={`${stage.name}-${index}`}>
-                            <strong>{stage.name}</strong>
+                            <strong>{stage.name}</strong>{stage.overdue && <> <Badge tone="red">Terlambat{stage.delay_cause === 'klien' ? ' · menunggu klien' : ''}</Badge></>}
                             <div className="text-xs text-gray-500">Mulai {stage.started_at}{stage.due_at ? ` · tenggat ${stage.due_at}` : ''}{stage.finished_at ? ` · selesai ${stage.finished_at}` : ' · berjalan'}</div>
                         </li>)}
                     </ol>

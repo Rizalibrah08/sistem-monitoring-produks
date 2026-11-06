@@ -22,6 +22,7 @@ type TicketRow = {
     status_label: string;
     current_stage: string | null;
     needs_review: boolean;
+    is_late?: boolean;
     progress: number;
     created_at: string | null;
     show_url: string;
@@ -58,7 +59,7 @@ export default function Tickets({ tickets, filters, phases, statuses, can, creat
                                 <td>{ticket.phase_label}</td>
                                 <td>{ticket.current_stage ?? '—'}</td>
                                 <td><Progress value={ticket.progress} /></td>
-                                <td><Badge tone={ticket.status === 'aktif' ? 'blue' : ticket.status === 'selesai' ? 'green' : 'red'}>{ticket.status_label}</Badge>{ticket.needs_review && <div className="mt-1"><Badge tone="amber">Perlu ditinjau</Badge></div>}</td>
+                                <td><Badge tone={ticket.status === 'aktif' ? 'blue' : ticket.status === 'selesai' ? 'green' : 'red'}>{ticket.status_label}</Badge>{ticket.needs_review && <div className="mt-1"><Badge tone="amber">Perlu ditinjau</Badge></div>}{ticket.is_late && <div className="mt-1"><Badge tone="red">Terlambat</Badge></div>}</td>
                             </tr>)}</tbody>
                         </table>
                     </div>
