@@ -83,6 +83,46 @@ class Ticket extends Model
         return $this->hasMany(TicketDocument::class);
     }
 
+    /** @return HasMany<BpomSubmission, $this> */
+    public function bpomSubmissions(): HasMany
+    {
+        return $this->hasMany(BpomSubmission::class);
+    }
+
+    /** @return HasMany<BpomRequest, $this> */
+    public function bpomRequests(): HasMany
+    {
+        return $this->hasMany(BpomRequest::class);
+    }
+
+    /**
+     * Pindahkan tiket ke tahap utama berikutnya: log tahap utama yang berjalan ditutup,
+     * sedangkan tahap perbaikan dokumen yang berjalan berdampingan dibiarkan.
+     */
+    public function moveToStage(string $code): ?Stage
+    {
+        $stage = Stage::query()->where('code', $code)->where('is_active', true)->first();
+
+        $this->stageLogs()->whereNull('finished_at')
+            ->whereHas('stage', fn (Builder $query) => $query->where('code', '!=', 'perbaikan_dokumen'))
+            ->update(['finished_at' => now()]);
+
+        if ($stage !== null) {
+            $this->stageLogs()->create(['stage_id' => $stage->id, 'started_at' => now()]);
+            $this->update(['current_stage_id' => $stage->id]);
+        }
+
+        return $stage;
+    }
+
+    /** Tutup log tahap tertentu yang masih berjalan tanpa membuka tahap baru. */
+    public function finishStage(string $code): void
+    {
+        $this->stageLogs()->whereNull('finished_at')
+            ->whereHas('stage', fn (Builder $query) => $query->where('code', $code))
+            ->update(['finished_at' => now()]);
+    }
+
     /** @return HasMany<Invoice, $this> */
     public function invoices(): HasMany
     {

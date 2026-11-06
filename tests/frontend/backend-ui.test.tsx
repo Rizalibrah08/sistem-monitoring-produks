@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import Login from '../../resources/js/Pages/Auth/Login';
+import Bpom from '../../resources/js/Pages/Backend/Bpom';
 import Clients from '../../resources/js/Pages/Backend/Clients';
 import Contracts from '../../resources/js/Pages/Backend/Contracts';
 import Invoices from '../../resources/js/Pages/Backend/Invoices';
@@ -456,9 +457,10 @@ const ticketListProps = {
     urls: { store: '/tickets', clients: '/clients' },
 };
 const ticketRoutes = { routes: { tickets: '/tickets' } };
+const noBpom = { can_manage: false, can_submit: false, can_reject: false, registration_blockers: null, submissions: [], urls: { submit: '/tickets/5/bpom-submissions', open_registration: '/tickets/5/registration', reject: '/tickets/5/rejection' } };
 const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links', samples: '/tickets/5/samples', resolve_reviews: '/tickets/5/reviews/resolve', contract_store: '/contracts' };
 const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false, resolve_reviews: false, manage_contract: false, create_contract: false };
-const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null, invoices: [] };
+const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null, invoices: [], bpom: noBpom };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
 type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; content_verified: boolean | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
@@ -601,6 +603,7 @@ describe('ticket documents', () => {
                 contract={null}
                 contractOptions={null}
                 invoices={[]}
+                bpom={noBpom}
             />,
             { ...ticketRoutes, auth: { user: { ...staff, role: 'rnd', role_label: 'R&D' }, permissions: ['tickets.view', 'ticket_materials.manage', 'materials.create'] } },
         );
@@ -932,5 +935,38 @@ describe('document verification', () => {
         await user.click(screen.getByRole('button', { name: 'Kembalikan dokumen' }));
 
         expect(requests).toEqual([{ url: '/ticket-documents/4/reviews/pemakaian', data: { decision: 'perlu_revisi', note: 'Nomor batch tidak sesuai.', token: 'a'.repeat(64) } }]);
+    });
+});
+
+describe('bpom', () => {
+    it('lists submissions by nearest deadline and warns about a third additional data request', () => {
+        renderPage(
+            <Bpom submissions={[{ id: 1, ticket_code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', ticket_url: '/tickets/5', phase_label: 'Registrasi', submitted_on: '01/11/2026', pnbp: 3000000, status_label: 'Tambahan data TD3', deadline: '01/02/2027', deadline_passed: false, rejection_risk: true }]} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['bpom.manage'] } },
+        );
+
+        expect(screen.getByRole('link', { name: 'PRD-2026-0001' })).toHaveAttribute('href', '/tickets/5');
+        expect(screen.getByText('Risiko ditolak (TD3)')).toBeInTheDocument();
+    });
+
+    it('shows the unmet registration requirements and records a submission', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <TicketShow ticket={{ ...ticketDetail, phase: 'pra_registrasi', phase_label: 'Pra-registrasi' }} checklist={[]} stages={[]} history={[]} {...noMaterials}
+                bpom={{ ...noBpom, can_manage: true, can_submit: true, registration_blockers: ['Pengajuan pra-registrasi belum dicatat.'] }} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['tickets.view', 'bpom.manage'] } },
+        );
+
+        expect(screen.getByText('Pengajuan pra-registrasi belum dicatat.')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Buka fase registrasi' })).toBeDisabled();
+        await user.type(screen.getByLabelText('Tanggal pengajuan'), '2026-11-05');
+        await user.type(screen.getByLabelText('PNBP (Rp)'), '3000000');
+        await user.click(screen.getByRole('button', { name: 'Catat pengajuan pra-registrasi' }));
+
+        expect(requests).toEqual([{ url: '/tickets/5/bpom-submissions', data: { submitted_on: '2026-11-05', pnbp: '3000000' } }]);
     });
 });

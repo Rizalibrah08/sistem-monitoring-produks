@@ -32,12 +32,6 @@ return [
             'description' => 'Bahan baku produk dan dokumen asal peredarannya.', 'empty_title' => 'Belum ada bahan baku tiket',
             'columns' => ['Tiket', 'Bahan baku', 'Dokumen terkait', 'Status'],
         ],
-        'bpom' => [
-            'title' => 'Pengajuan dan catatan BPOM', 'label' => 'Pengajuan BPOM', 'path' => '/bpom', 'route' => 'bpom.index', 'icon' => 'package', 'group' => 'Operasional',
-            'roles' => ['ra'],
-            'description' => 'Pengajuan pra-registrasi, registrasi, dan tambahan data BPOM.', 'empty_title' => 'Belum ada pengajuan BPOM',
-            'columns' => ['Tiket', 'Fase', 'Tanggal pengajuan', 'PNBP', 'Tenggat', 'Status'], 'actions' => ['Catat pengajuan'],
-        ],
         'nie' => [
             'title' => 'Input NIE', 'path' => '/nie', 'route' => 'nie.index', 'icon' => 'shield', 'group' => 'Operasional',
             'roles' => ['ra'],

@@ -35,7 +35,7 @@ enum StaffRole: string
             self::Marketing => ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create', 'upload_links.manage', 'samples.record', 'contracts.manage'],
             self::Research => ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage'],
             self::Quality => ['dashboard.view', 'tickets.view', 'documents.verify_content'],
-            self::Regulatory => ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve', 'documents.approve_usage'],
+            self::Regulatory => ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve', 'documents.approve_usage', 'bpom.manage'],
             default => ['dashboard.view'],
         };
     }

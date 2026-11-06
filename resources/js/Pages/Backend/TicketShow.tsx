@@ -58,6 +58,16 @@ type ContractDetail = {
     signed_at: string | null; confirmed_at: string | null; files: Partial<Record<'word' | 'pdf' | 'signed', string>>;
     urls: { update: string; send: string; signed: string; confirm: string };
 };
+type BpomRequestEntry = { id: number; code: string; note: string; requested_on: string; deadline: string; responded_at: string | null; respond_url: string };
+type BpomSubmissionEntry = {
+    id: number; phase_label: string; status: string; status_label: string; submitted_on: string; pnbp: number; locked_documents: number;
+    result_on: string | null; registration_deadline: string | null; result_url: string | null; can_record_result: boolean; can_request: boolean;
+    requests: BpomRequestEntry[]; urls: { result: string; request: string };
+};
+type BpomDetail = {
+    can_manage: boolean; can_submit: boolean; can_reject: boolean; registration_blockers: string[] | null;
+    submissions: BpomSubmissionEntry[]; urls: { submit: string; open_registration: string; reject: string };
+};
 type ContractOptions = { templates: ContractOption[]; defaults: ContractDefaults };
 type ReviewEntry = { id: number; trigger_label: string; message: string; flagged_at: string | null };
 type SampleEntry = { id: number; revision: number; decision: string; decision_label: string; note: string | null; recorded_by: string; recorded_at: string | null };
@@ -66,7 +76,7 @@ type UploadLinks = { default_days: number; max_days: number; active: UploadLink[
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions, invoices }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions, invoices, bpom }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -81,6 +91,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     contract: ContractDetail | null;
     contractOptions: ContractOptions | null;
     invoices: InvoiceRow[];
+    bpom: BpomDetail;
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -120,6 +131,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                 </Panel>
             </div>
             {(contract || can.create_contract) && <div className="mt-5"><ContractPanel ticketId={ticket.id} contract={contract} options={contractOptions} can={can} storeUrl={urls.contract_store} /></div>}
+            {(bpom.submissions.length > 0 || bpom.can_manage) && <div className="mt-5"><BpomPanel bpom={bpom} phase={ticket.phase} documents={checklist.flatMap((phase) => phase.documents)} /></div>}
             {invoices.length > 0 && <div className="mt-5"><Panel title="Tagihan" description="Dibayar klien melalui Midtrans; status lunas tercatat otomatis. Tagihan DP tidak menahan proses.">
                 <ul className="panel-body space-y-2 text-sm">{invoices.map((invoice) => <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2">
                     <span><strong>{invoice.number}</strong> · {invoice.term_label} · {rupiah(invoice.amount)} <span className="text-gray-500">· jatuh tempo {invoice.due_date}{invoice.paid_at ? ` · lunas ${invoice.paid_at}` : ''}</span></span>
@@ -361,5 +373,88 @@ function ContractPanel({ ticketId, contract, options, can, storeUrl }: { ticketI
                 {manage && contract.status === 'ditandatangani' && <Button icon={Check} onClick={() => action(contract.urls.confirm)}>Konfirmasi kontrak aktif</Button>}
             </div>
         </Panel>
+    );
+}
+
+function BpomPanel({ bpom, phase, documents }: { bpom: BpomDetail; phase: string; documents: ChecklistDocument[] }) {
+    const { errors } = usePage<{ errors: Record<string, string> }>().props;
+    const submit = useForm({ submitted_on: '', pnbp: '' });
+    const reject = useForm({ reason: '' });
+    const [requesting, setRequesting] = useState<BpomSubmissionEntry | null>(null);
+    const [recording, setRecording] = useState<BpomSubmissionEntry | null>(null);
+    const uniqueDocuments = documents.filter((document, index) => documents.findIndex((other) => other.id === document.id) === index);
+
+    return (
+        <Panel title="Pengajuan BPOM" description="Versi dokumen yang diajukan dikunci; tambahan data BPOM bertenggat 60 hari kerja.">
+            <div className="panel-body space-y-4 text-sm">
+                {errors.bpom && <InfoBox warning>{errors.bpom}</InfoBox>}
+                {bpom.submissions.map((submission) => <div key={submission.id} className="space-y-2">
+                    <p><strong>{submission.phase_label}</strong> <Badge tone={submission.status === 'hangus' ? 'red' : 'blue'}>{submission.status_label}</Badge>
+                        <span className="text-gray-500"> · diajukan {submission.submitted_on} · PNBP {rupiah(submission.pnbp)} · {submission.locked_documents} dokumen dikunci</span></p>
+                    {submission.result_on && <p>Hasil {submission.result_on}{submission.result_url && <> · <a className="text-link" href={submission.result_url}>unduh dokumen hasil</a></>}{submission.registration_deadline && <> · <strong>ajukan registrasi paling lambat {submission.registration_deadline}</strong></>}</p>}
+                    {submission.requests.map((request) => <div key={request.id} className={request.code === 'TD3' && !request.responded_at ? 'info-box info-warning' : ''}>
+                        <strong>{request.code}</strong> · diminta {request.requested_on} · tenggat {request.deadline}{request.responded_at ? ` · ditanggapi ${request.responded_at}` : ''}
+                        <p>{request.note}</p>
+                        {request.code === 'TD3' && !request.responded_at && <p>Tambahan data ketiga: bila tidak terpenuhi, pendaftaran ditolak.</p>}
+                        {bpom.can_manage && !request.responded_at && <Button variant="secondary" onClick={() => router.post(request.respond_url, {}, { preserveScroll: true })}>Tandai sudah ditanggapi</Button>}
+                    </div>)}
+                    {bpom.can_manage && <div className="flex flex-wrap gap-2">
+                        {submission.can_record_result && <Button variant="secondary" onClick={() => setRecording(submission)}>Catat hasil pra-registrasi</Button>}
+                        {submission.can_request && <Button variant="secondary" onClick={() => setRequesting(submission)}>Catat tambahan data</Button>}
+                    </div>}
+                </div>)}
+                {bpom.can_manage && bpom.can_submit && <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); submit.post(bpom.urls.submit, { preserveScroll: true }); }}>
+                    <Field label="Tanggal pengajuan" error={submit.errors.submitted_on}><input type="date" required value={submit.data.submitted_on} onChange={(event) => submit.setData('submitted_on', event.target.value)} /></Field>
+                    <Field label="PNBP (Rp)" error={submit.errors.pnbp}><input type="number" min={0} required value={submit.data.pnbp} onChange={(event) => submit.setData('pnbp', event.target.value)} /></Field>
+                    <Button type="submit" disabled={submit.processing}>Catat pengajuan {phase === 'registrasi' ? 'registrasi' : 'pra-registrasi'}</Button>
+                </form>}
+                {bpom.registration_blockers && <div>
+                    <strong>Syarat membuka fase registrasi</strong>
+                    {bpom.registration_blockers.length ? <ul className="mt-1 list-disc pl-5">{bpom.registration_blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p className="text-green-700">Semua syarat terpenuhi.</p>}
+                    {bpom.can_manage && <Button className="mt-2" disabled={bpom.registration_blockers.length > 0} onClick={() => router.post(bpom.urls.open_registration, {}, { preserveScroll: true })}>Buka fase registrasi</Button>}
+                </div>}
+                {bpom.can_manage && bpom.can_reject && <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); reject.post(bpom.urls.reject, { preserveScroll: true }); }}>
+                    <Field label="Alasan penolakan BPOM" error={reject.errors.reason}><input required value={reject.data.reason} onChange={(event) => reject.setData('reason', event.target.value)} /></Field>
+                    <Button type="submit" variant="danger" disabled={reject.processing}>Catat ditolak dan tutup tiket</Button>
+                </form>}
+            </div>
+            {recording && <ResultDialog key={recording.id} submission={recording} onClose={() => setRecording(null)} />}
+            {requesting && <RequestDialog key={requesting.id} submission={requesting} documents={uniqueDocuments} onClose={() => setRequesting(null)} />}
+        </Panel>
+    );
+}
+
+function ResultDialog({ submission, onClose }: { submission: BpomSubmissionEntry; onClose: () => void }) {
+    const form = useForm<{ result_on: string; file: File | null }>({ result_on: '', file: null });
+
+    return (
+        <Modal title="Catat hasil pra-registrasi" description="Tenggat pengajuan registrasi dihitung 30 hari kerja sejak tanggal hasil." onClose={onClose}>
+            <form className="form-stack" onSubmit={(event) => { event.preventDefault(); form.post(submission.urls.result, { preserveScroll: true, onSuccess: onClose }); }}>
+                <Field label="Tanggal hasil" error={form.errors.result_on}><input type="date" required value={form.data.result_on} onChange={(event) => form.setData('result_on', event.target.value)} /></Field>
+                <Field label="Dokumen hasil" error={form.errors.file}><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => form.setData('file', event.target.files?.[0] ?? null)} /></Field>
+                <div className="form-footer"><Button variant="secondary" onClick={onClose}>Batal</Button><Button type="submit" disabled={form.processing || !form.data.file}>Simpan hasil</Button></div>
+            </form>
+        </Modal>
+    );
+}
+
+function RequestDialog({ submission, documents, onClose }: { submission: BpomSubmissionEntry; documents: ChecklistDocument[]; onClose: () => void }) {
+    const form = useForm<{ note: string; requested_on: string; item_ids: number[] }>({ note: '', requested_on: '', item_ids: [] });
+    const toggle = (id: number, checked: boolean) => form.setData('item_ids', checked ? [...form.data.item_ids, id] : form.data.item_ids.filter((value) => value !== id));
+
+    return (
+        <Modal title={`Tambahan data TD${submission.requests.length + 1}`} description="Dokumen terkait dikembalikan ke PIC-nya dengan catatan BPOM." onClose={onClose}>
+            <form className="form-stack" onSubmit={(event) => { event.preventDefault(); form.post(submission.urls.request, { preserveScroll: true, onSuccess: onClose }); }}>
+                <Field label="Catatan BPOM" error={form.errors.note}><textarea required maxLength={2000} value={form.data.note} onChange={(event) => form.setData('note', event.target.value)} /></Field>
+                <Field label="Tanggal permintaan" error={form.errors.requested_on}><input type="date" required value={form.data.requested_on} onChange={(event) => form.setData('requested_on', event.target.value)} /></Field>
+                <fieldset className="max-h-60 space-y-1 overflow-y-auto" aria-label="Dokumen terkait">
+                    {documents.map((document) => <label key={document.id} className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={form.data.item_ids.includes(document.id)} onChange={(event) => toggle(document.id, event.target.checked)} />
+                        {document.name}{document.material ? ` · ${document.material}` : ''}
+                    </label>)}
+                </fieldset>
+                <div className="form-footer"><Button variant="secondary" onClick={onClose}>Batal</Button><Button type="submit" disabled={form.processing}>Simpan tambahan data</Button></div>
+            </form>
+        </Modal>
     );
 }
