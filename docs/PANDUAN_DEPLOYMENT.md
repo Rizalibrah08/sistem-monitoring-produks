@@ -98,6 +98,8 @@ Salin `docker/deploy/server.env.example` ke `/opt/aisha/test/.env` dan `/opt/ais
 | `EDGE_ALIAS` | `aisha-test-web` | `aisha-prod-web` |
 | `MYSQL_BUFFER_POOL_SIZE` | `128M` | `256M` |
 | `APP_KEY`, `DB_PASSWORD`, `DB_ROOT_PASSWORD` | Buat **berbeda** untuk tiap fase | Buat **berbeda** untuk tiap fase |
+| `MIDTRANS_SERVER_KEY` | Server key **sandbox** | Server key **production** |
+| `MIDTRANS_IS_PRODUCTION` | `false` | `true` |
 
 Nilai acak dapat dibuat dengan:
 
@@ -107,6 +109,8 @@ openssl rand -hex 24                       # DB_PASSWORD dan DB_ROOT_PASSWORD
 ```
 
 Lindungi berkasnya: `chmod 600 /opt/aisha/test/.env /opt/aisha/prod/.env`.
+
+Di dashboard Midtrans (sandbox untuk fase test, production untuk fase utama), isi *Settings → Payment → Notification URL* dengan `{APP_URL}/midtrans/notification`. Tanpa URL ini, pembayaran klien tidak tercatat lunas.
 
 ## 2. Pengaturan sekali di GitHub
 

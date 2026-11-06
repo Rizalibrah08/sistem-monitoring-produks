@@ -56,12 +56,6 @@ return [
             'description' => 'Nomor Izin Edar dan penyelesaian pendaftaran produk.', 'empty_title' => 'Belum ada tiket yang siap menerima NIE',
             'columns' => ['Tiket', 'Produk', 'Nomor NIE', 'Tanggal terbit'],
         ],
-        'receivables' => [
-            'title' => 'Laporan piutang', 'path' => '/receivables', 'route' => 'receivables.index', 'icon' => 'coins', 'group' => 'Operasional',
-            'roles' => ['finance', 'manager'],
-            'description' => 'Tagihan yang belum lunas, termasuk tiket yang telah ditutup.', 'empty_title' => 'Belum ada data piutang',
-            'columns' => ['Klien', 'Tagihan', 'Jatuh tempo', 'Sisa pembayaran', 'Status'],
-        ],
         'inbox' => [
             'title' => 'Kotak masuk WhatsApp', 'label' => 'Kotak masuk', 'path' => '/inbox', 'route' => 'inbox.index', 'icon' => 'message', 'group' => 'Komunikasi',
             'roles' => ['marketing', 'ra', 'manager'],
