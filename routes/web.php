@@ -17,6 +17,7 @@ use App\Http\Controllers\DocumentVerificationController;
 use App\Http\Controllers\DocumentVersionDownloadController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
+use App\Http\Controllers\IngredientController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LabTestController;
 use App\Http\Controllers\MasterDataController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\PriorityController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SampleApprovalController;
+use App\Http\Controllers\SharedDocumentController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\TaskController;
 use App\Http\Controllers\TicketController;
@@ -61,6 +63,11 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     Route::get('/dashboard', DashboardController::class)->middleware('can:dashboard.view')->name('dashboard');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::middleware('can:shared_documents.manage')->group(function (): void {
+        Route::get('/shared-documents', [SharedDocumentController::class, 'index'])->name('shared_documents.index');
+        Route::post('/shared-documents', [SharedDocumentController::class, 'store'])->name('shared_documents.store');
+    });
+    Route::get('/ingredients', IngredientController::class)->middleware('can:ticket_materials.manage')->name('ingredients.index');
     Route::get('/tasks', TaskController::class)->middleware('can:tickets.view')->name('tasks.index');
     Route::middleware('can:reports.view')->group(function (): void {
         Route::get('/reports', [ReportController::class, 'durations'])->name('reports.index');

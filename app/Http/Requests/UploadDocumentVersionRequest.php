@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\DocumentType;
 use App\Models\Ticket;
 use App\Models\TicketDocument;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -35,7 +36,7 @@ class UploadDocumentVersionRequest extends FormRequest
      */
     public function rules(): array
     {
-        $type = $this->route('ticketDocument')?->documentType;
+        $type = $this->documentType();
 
         return [
             'file' => ['bail', 'required', 'file', 'extensions:pdf,jpg,jpeg,png,docx,xlsx', 'mimes:pdf,jpg,jpeg,png,docx,xlsx', 'max:20480'],
@@ -43,6 +44,12 @@ class UploadDocumentVersionRequest extends FormRequest
             'issued_at' => [Rule::requiredIf($type?->max_age_months !== null), 'nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
             'expires_at' => [Rule::requiredIf((bool) $type?->requires_expiry_date), 'nullable', 'date_format:Y-m-d', 'after_or_equal:issued_at'],
         ];
+    }
+
+    /** Jenis dokumen yang menentukan kolom tanggal wajib. */
+    protected function documentType(): ?DocumentType
+    {
+        return $this->route('ticketDocument')?->documentType;
     }
 
     /** @return array<string, string> */

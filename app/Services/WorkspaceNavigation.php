@@ -56,6 +56,14 @@ class WorkspaceNavigation
             $items[] = ['id' => 'qa-review', 'label' => 'Verifikasi mutu', 'href' => route('quality.index', absolute: false), 'icon' => 'shield', 'group' => 'Operasional', 'available' => true];
         }
 
+        if ($user->can('shared_documents.manage')) {
+            $items[] = ['id' => 'shared-documents', 'label' => 'Dokumen bersama', 'href' => route('shared_documents.index', absolute: false), 'icon' => 'file', 'group' => 'Operasional', 'available' => true];
+        }
+
+        if ($user->can('ticket_materials.manage')) {
+            $items[] = ['id' => 'ingredients', 'label' => 'Bahan baku tiket', 'href' => route('ingredients.index', absolute: false), 'icon' => 'flask', 'group' => 'Operasional', 'available' => true];
+        }
+
         if ($user->can('invoices.view')) {
             $items[] = ['id' => 'invoices', 'label' => 'Tagihan', 'href' => route('invoices.index', absolute: false), 'icon' => 'file-clock', 'group' => 'Operasional', 'available' => true];
             $items[] = ['id' => 'receivables', 'label' => 'Laporan piutang', 'href' => route('receivables.index', absolute: false), 'icon' => 'coins', 'group' => 'Operasional', 'available' => true];

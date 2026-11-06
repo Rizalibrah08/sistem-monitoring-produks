@@ -6,6 +6,7 @@ use App\DocumentScope;
 use App\DocumentSource;
 use App\DocumentStatus;
 use App\Models\Document;
+use App\Models\DocumentType;
 use App\Models\DocumentVersion;
 use App\Models\TicketDocument;
 use App\Models\User;
@@ -39,36 +40,12 @@ class StoreDocumentVersion
         $storedPath = null;
 
         try {
-            return DB::transaction(function () use ($item, $file, $data, $actor, $source, $disk, &$storedPath): DocumentVersion {
+            return DB::transaction(function () use ($item, $file, $data, $actor, $source, &$storedPath): DocumentVersion {
                 $item->loadMissing(['ticket', 'documentType']);
                 $document = $this->documentFor($item);
-                Document::query()->whereKey($document->id)->lockForUpdate()->first();
-
-                $issuedAt = filled($data['issued_at'] ?? null) ? Carbon::parse($data['issued_at']) : null;
-                $expiresAt = filled($data['expires_at'] ?? null) ? Carbon::parse($data['expires_at']) : null;
-                $errors = $this->validator->errors($item->documentType, $issuedAt, $expiresAt, now());
-
-                $number = (int) $document->versions()->max('version') + 1;
-                $extension = strtolower($file->getClientOriginalExtension());
-                $storedPath = $disk->putFileAs("documents/{$document->id}", $file, "v{$number}-".Str::uuid().".{$extension}");
-
-                $version = $document->versions()->create([
-                    'version' => $number,
-                    'path' => $storedPath,
-                    'original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
-                    'mime_type' => $file->getMimeType(),
-                    'size' => $file->getSize(),
-                    'checksum' => hash_file('sha256', $file->getRealPath()),
-                    'number' => $data['number'],
-                    'issued_at' => $issuedAt,
-                    'expires_at' => $expiresAt,
-                    'source' => $source,
-                    'uploaded_by' => $actor?->id,
-                    'validation_passed' => $errors === [],
-                    'validation_errors' => $errors,
-                ]);
-
-                $document->update(['current_version_id' => $version->id]);
+                $version = $this->createVersion($document, $item->documentType, $file, $data, $actor, $source, $storedPath);
+                $errors = $version->validation_errors;
+                $number = $version->version;
                 $before = ['status' => $item->status->value];
                 $item->update([
                     'document_id' => $document->id,
@@ -103,6 +80,82 @@ class StoreDocumentVersion
 
             throw $exception;
         }
+    }
+
+    /**
+     * Unggah versi baru dokumen bersama perusahaan dari halaman Dokumen bersama, tanpa butir
+     * checklist tertentu (F05). Versi divalidasi otomatis dan tiket aktif yang memakainya
+     * ditandai perlu ditinjau (FR-20).
+     *
+     * @param  array{number: string, issued_at?: ?string, expires_at?: ?string}  $data
+     */
+    public function handleShared(Document $document, UploadedFile $file, array $data, User $actor): DocumentVersion
+    {
+        $storedPath = null;
+
+        try {
+            return DB::transaction(function () use ($document, $file, $data, $actor, &$storedPath): DocumentVersion {
+                $document->loadMissing('documentType');
+                $version = $this->createVersion($document, $document->documentType, $file, $data, $actor, DocumentSource::Internal, $storedPath);
+
+                $this->audit->record('document.uploaded', $document, after: [
+                    'document_type' => $document->documentType->name,
+                    'version' => $version->version,
+                    'number' => $version->number,
+                    'source' => DocumentSource::Internal->value,
+                    'validation_errors' => $version->validation_errors,
+                ], actor: $actor);
+
+                $this->reviews->flagNewVersion($document, $version, 0);
+
+                return $version;
+            }, attempts: 3);
+        } catch (Throwable $exception) {
+            if ($storedPath !== null) {
+                Storage::disk('local')->delete($storedPath);
+            }
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * Simpan berkas sebagai versi berikutnya dokumen beserta hasil validasi otomatisnya, lalu
+     * jadikan versi terkini. Dokumen dikunci agar nomor versi tidak bertabrakan.
+     *
+     * @param  array{number: string, issued_at?: ?string, expires_at?: ?string}  $data
+     */
+    private function createVersion(Document $document, DocumentType $type, UploadedFile $file, array $data, ?User $actor, DocumentSource $source, ?string &$storedPath): DocumentVersion
+    {
+        Document::query()->whereKey($document->id)->lockForUpdate()->first();
+
+        $issuedAt = filled($data['issued_at'] ?? null) ? Carbon::parse($data['issued_at']) : null;
+        $expiresAt = filled($data['expires_at'] ?? null) ? Carbon::parse($data['expires_at']) : null;
+        $errors = $this->validator->errors($type, $issuedAt, $expiresAt, now());
+
+        $number = (int) $document->versions()->max('version') + 1;
+        $extension = strtolower($file->getClientOriginalExtension());
+        $storedPath = Storage::disk('local')->putFileAs("documents/{$document->id}", $file, "v{$number}-".Str::uuid().".{$extension}");
+
+        $version = $document->versions()->create([
+            'version' => $number,
+            'path' => $storedPath,
+            'original_name' => mb_substr($file->getClientOriginalName(), 0, 255),
+            'mime_type' => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'checksum' => hash_file('sha256', $file->getRealPath()),
+            'number' => $data['number'],
+            'issued_at' => $issuedAt,
+            'expires_at' => $expiresAt,
+            'source' => $source,
+            'uploaded_by' => $actor?->id,
+            'validation_passed' => $errors === [],
+            'validation_errors' => $errors,
+        ]);
+
+        $document->update(['current_version_id' => $version->id]);
+
+        return $version;
     }
 
     /**

@@ -44,6 +44,18 @@ class Document extends Model
         return $this->belongsTo(DocumentType::class);
     }
 
+    /** @return BelongsTo<Client, $this> */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    /** @return BelongsTo<Material, $this> */
+    public function material(): BelongsTo
+    {
+        return $this->belongsTo(Material::class);
+    }
+
     /** @return HasMany<DocumentVersion, $this> */
     public function versions(): HasMany
     {

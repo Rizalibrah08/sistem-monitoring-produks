@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\DocumentScope;
 use App\Models\DocumentVersion;
 use App\Models\Ticket;
 use Illuminate\Database\Eloquent\Builder;
@@ -13,7 +14,8 @@ class DocumentVersionDownloadController extends Controller
 {
     /**
      * Berkas hanya dapat diunduh oleh staf yang dapat melihat salah satu tiket
-     * yang memakai dokumen tersebut (NFR-07).
+     * yang memakai dokumen tersebut, atau pengelola dokumen bersama untuk dokumen
+     * bersama (NFR-07).
      */
     public function __invoke(Request $request, DocumentVersion $documentVersion): StreamedResponse
     {
@@ -21,7 +23,9 @@ class DocumentVersionDownloadController extends Controller
             ->whereHas('documents', fn (Builder $query) => $query->where('document_id', $documentVersion->document_id))
             ->exists();
 
-        abort_unless($canSeeTicket, 403);
+        $sharedManager = $request->user()->can('shared_documents.manage') && $documentVersion->document->scope !== DocumentScope::Ticket;
+
+        abort_unless($canSeeTicket || $sharedManager, 403);
 
         return Storage::disk('local')->download($documentVersion->path, $documentVersion->original_name);
     }
