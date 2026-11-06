@@ -1,14 +1,17 @@
-import { useForm, usePage } from '@inertiajs/react';
+import { router, useForm, usePage } from '@inertiajs/react';
+import { Download, ShieldCheck } from 'lucide-react';
 import type { FormEvent } from 'react';
 import type { AuditEntry, BackendSharedProps, Paginated } from '../../backend-types';
 import { BackendPagination } from '../../components/backend-pagination';
-import { Badge, Button, EmptyState, Field, PageHeader, Panel, Select } from '../../components/ui';
+import { Badge, Button, EmptyState, Field, InfoBox, PageHeader, Panel, Select } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
 
 type Filters = { actor_id: string | number; event: string; ticket_code: string; date_from: string; date_to: string };
+type Integrity = { checked: number; valid: boolean; mismatches: { id: number; event: string | null; created_at: string | null; reason: string }[]; verified_at: string };
+type AuditUrls = { csv: string; pdf: string; verify: string | null };
 
-export default function Audit({ entries, actors, filters }: { entries: Paginated<AuditEntry>; actors: { id: number; name: string }[]; filters: Filters }) {
-    const { routes } = usePage<BackendSharedProps>().props;
+export default function Audit({ entries, actors, filters, urls, integrity = null }: { entries: Paginated<AuditEntry>; actors: { id: number; name: string }[]; filters: Filters; urls?: AuditUrls; integrity?: Integrity | null }) {
+    const { routes, errors } = usePage<BackendSharedProps & { errors: Record<string, string> }>().props;
     const form = useForm({ ...filters, actor_id: String(filters.actor_id ?? '') });
 
     function filter(event: FormEvent<HTMLFormElement>) {
@@ -18,7 +21,18 @@ export default function Audit({ entries, actors, filters }: { entries: Paginated
 
     return (
         <BackendLayout title="Log audit">
-            <PageHeader title="Log audit" description="Riwayat append-only dengan rantai SHA-256. Waktu ditampilkan dalam WIB." />
+            <PageHeader title="Log audit" description="Riwayat append-only dengan rantai SHA-256. Waktu ditampilkan dalam WIB.">
+                {urls && <>
+                    <a className="btn btn-secondary" href={urls.csv}><Download size={16} strokeWidth={1.8} />Ekspor CSV</a>
+                    <a className="btn btn-secondary" href={urls.pdf}><Download size={16} strokeWidth={1.8} />Ekspor PDF</a>
+                    {urls.verify && <Button icon={ShieldCheck} onClick={() => router.post(urls.verify!, {}, { preserveScroll: true })}>Verifikasi integritas</Button>}
+                </>}
+            </PageHeader>
+            {errors.export && <div className="mb-5"><InfoBox warning>{errors.export}</InfoBox></div>}
+            {integrity && <div className="mb-5"><InfoBox warning={!integrity.valid}>
+                <strong>{integrity.valid ? `Rantai hash utuh: ${integrity.checked} entri diperiksa.` : `Ditemukan entri yang tidak cocok dari ${integrity.checked} entri.`}</strong> <span className="text-gray-500">({integrity.verified_at})</span>
+                {integrity.mismatches.length > 0 && <ul className="mt-1 list-disc pl-5 text-sm">{integrity.mismatches.map((item) => <li key={item.id}>#{item.id} {item.event ?? ''} · {item.created_at} · {item.reason}</li>)}</ul>}
+            </InfoBox></div>}
             <Panel className="mb-5 p-5">
                 <form onSubmit={filter} className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <Field label="Pelaku" error={form.errors.actor_id}><Select value={form.data.actor_id} onChange={(event) => form.setData('actor_id', event.target.value)}><option value="">Semua pelaku</option>{actors.map((actor) => <option key={actor.id} value={actor.id}>{actor.name}</option>)}</Select></Field>

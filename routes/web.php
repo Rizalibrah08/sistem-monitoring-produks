@@ -71,6 +71,8 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     Route::post('/notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::resource('users', UserController::class)->only(['index', 'store', 'update'])->middleware('can:users.manage');
     Route::get('/audit', AuditController::class)->middleware('can:audit.view')->name('audit.index');
+    Route::get('/audit/export/{format}', [AuditController::class, 'export'])->whereIn('format', ['csv', 'pdf'])->middleware('can:audit.view')->name('audit.export');
+    Route::post('/audit/verify', [AuditController::class, 'verify'])->middleware(['can:audit.view', 'can:users.manage'])->name('audit.verify');
 
     Route::middleware('can:master.manage')->prefix('master')->name('master.')->group(function (): void {
         Route::get('/', MasterDataController::class)->name('index');

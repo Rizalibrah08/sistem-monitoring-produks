@@ -40,6 +40,24 @@ class DocumentRenderer
     }
 
     /**
+     * Cetak halaman HTML menjadi PDF lanskap A4 melalui Gotenberg (Chromium), untuk ekspor laporan.
+     *
+     * @throws RequestException bila Gotenberg menolak atau tidak dapat dihubungi
+     */
+    public function htmlToPdf(string $html): string
+    {
+        return Http::timeout(90)
+            ->attach('files', $html, 'index.html')
+            ->post(rtrim((string) config('services.gotenberg.url'), '/').'/forms/chromium/convert/html', [
+                'paperWidth' => '11.7',
+                'paperHeight' => '8.27',
+                'printBackground' => 'true',
+            ])
+            ->throw()
+            ->body();
+    }
+
+    /**
      * Ubah dokumen Word menjadi PDF melalui Gotenberg (LibreOffice).
      *
      * @throws RequestException bila Gotenberg menolak atau tidak dapat dihubungi
