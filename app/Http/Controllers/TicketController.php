@@ -6,6 +6,8 @@ use App\Actions\CreateTicket;
 use App\DocumentStatus;
 use App\Http\Requests\CreateTicketRequest;
 use App\Models\Activity;
+use App\Models\BpomRequest;
+use App\Models\BpomSubmission;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Contract;
@@ -18,9 +20,12 @@ use App\Models\TicketDocument;
 use App\Models\TicketReview;
 use App\Models\TicketStageLog;
 use App\Models\UploadToken;
+use App\Models\User;
 use App\SampleDecision;
+use App\Services\BpomWorkflow;
 use App\StaffRole;
 use App\StagePhase;
+use App\SubmissionStatus;
 use App\TicketStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -37,6 +42,13 @@ class TicketController extends Controller
         'ticket.created' => 'Tiket dibuat',
         'document.uploaded' => 'Dokumen diunggah',
         'document.reviewed' => 'Dokumen diverifikasi',
+        'bpom.submitted' => 'Pengajuan BPOM dicatat',
+        'bpom.pre_registration_result' => 'Hasil pra-registrasi dicatat',
+        'bpom.additional_data' => 'Tambahan data BPOM dicatat',
+        'bpom.additional_data_responded' => 'Tanggapan tambahan data dikirim',
+        'bpom.pre_registration_expired' => 'Pra-registrasi hangus',
+        'ticket.registration_opened' => 'Fase registrasi dibuka',
+        'ticket.rejected' => 'Pendaftaran ditolak BPOM',
         'ticket.materials_updated' => 'Bahan baku diperbarui',
         'upload_link.created' => 'Tautan unggah klien dibuat',
         'sample.recorded' => 'Keputusan sampel dicatat',
@@ -120,7 +132,7 @@ class TicketController extends Controller
         return redirect()->route('tickets.show', $ticket)->with('status', "Tiket {$ticket->code} berhasil dibuat.");
     }
 
-    public function show(Request $request, Ticket $ticket): Response
+    public function show(Request $request, Ticket $ticket, BpomWorkflow $bpom): Response
     {
         $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials', 'sampleApprovals.recorder', 'contract.documentTemplate', 'invoices.ticket.client']);
         $user = $request->user();
@@ -228,6 +240,7 @@ class TicketController extends Controller
                     'confirm' => route('contracts.confirm', $contract, absolute: false),
                 ],
             ],
+            'bpom' => $this->bpom($ticket, $user, $bpom),
             'invoices' => $ticket->invoices->sortBy('id')->map(fn (Invoice $invoice): array => InvoiceController::row($invoice))->values(),
             'contractOptions' => $canManageContract ? [
                 'templates' => ContractController::templateOptions(),
@@ -276,6 +289,57 @@ class TicketController extends Controller
                     'created_at' => $entry->created_at?->format('d/m/Y H:i'),
                 ]),
         ]);
+    }
+
+    /**
+     * Pengajuan BPOM, tambahan data, dan syarat pembukaan fase registrasi (F07, F08).
+     *
+     * @return array<string, mixed>
+     */
+    private function bpom(Ticket $ticket, User $user, BpomWorkflow $workflow): array
+    {
+        $canManage = $user->can('bpom.manage');
+        $submissions = $ticket->bpomSubmissions()->with('requests')->withCount('lockedVersions')->orderBy('id')->get();
+
+        return [
+            'can_manage' => $canManage && $ticket->status === TicketStatus::Active,
+            'can_submit' => in_array($ticket->phase, [StagePhase::PreRegistration, StagePhase::Registration], true)
+                && ! $submissions->contains(fn (BpomSubmission $submission): bool => $submission->phase === $ticket->phase && $submission->status !== SubmissionStatus::Expired),
+            'can_reject' => $submissions->flatMap->requests->contains('sequence', BpomRequest::MAX_SEQUENCE),
+            'registration_blockers' => $ticket->phase === StagePhase::PreRegistration ? $workflow->registrationBlockers($ticket, now()) : null,
+            'submissions' => $submissions->map(fn (BpomSubmission $submission): array => [
+                'id' => $submission->id,
+                'phase_label' => $submission->phase->label(),
+                'status' => $submission->status->value,
+                'status_label' => $submission->status->label(),
+                'submitted_on' => $submission->submitted_on->format('d/m/Y'),
+                'pnbp' => $submission->pnbp,
+                'locked_documents' => $submission->locked_versions_count,
+                'result_on' => $submission->result_on?->format('d/m/Y'),
+                'registration_deadline' => $submission->registration_deadline?->format('d/m/Y'),
+                'result_url' => $submission->result_path === null ? null : route('bpom.result-file', $submission, absolute: false),
+                'can_record_result' => $submission->phase === StagePhase::PreRegistration && $submission->status === SubmissionStatus::AwaitingResult,
+                'can_request' => $submission->status === SubmissionStatus::AwaitingResult && $submission->requests->count() < BpomRequest::MAX_SEQUENCE,
+                'requests' => $submission->requests->sortBy('sequence')->map(fn (BpomRequest $request): array => [
+                    'id' => $request->id,
+                    'code' => $request->code(),
+                    'note' => $request->note,
+                    'requested_on' => $request->requested_on->format('d/m/Y'),
+                    'deadline' => $request->deadline->format('d/m/Y'),
+                    'responded_at' => $request->responded_at?->format('d/m/Y H:i'),
+                    'respond_url' => route('bpom.requests.respond', $request, absolute: false),
+                ])->values(),
+                'urls' => [
+                    'result' => route('bpom.result', $submission, absolute: false),
+                    'request' => route('bpom.requests.store', $submission, absolute: false),
+                ],
+            ]),
+            'urls' => [
+                'submit' => route('bpom.submit', $ticket, absolute: false),
+                'open_registration' => route('bpom.open-registration', $ticket, absolute: false),
+                'reject' => route('bpom.reject', $ticket, absolute: false),
+            ],
+        ];
     }
 
     /**

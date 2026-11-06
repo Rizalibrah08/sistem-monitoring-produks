@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\BpomController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientUploadController;
@@ -86,12 +87,22 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::post('/tickets/{ticket}/documents/{ticketDocument}/versions', [TicketDocumentVersionController::class, 'store'])->name('tickets.documents.versions.store');
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
         Route::post('/ticket-documents/{ticketDocument}/reviews/{level}', [DocumentVerificationController::class, 'store'])->whereIn('level', ['isi', 'pemakaian'])->name('ticket-documents.reviews.store');
+        Route::get('/bpom-submissions/{submission}/result', [BpomController::class, 'resultFile'])->name('bpom.result-file');
         Route::get('/contracts/{contract}/files/{file}', [ContractController::class, 'download'])->whereIn('file', ['word', 'pdf', 'signed'])->name('contracts.files');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
     Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
     Route::get('/qa-review', [DocumentVerificationController::class, 'quality'])->middleware('can:documents.verify_content')->name('quality.index');
     Route::get('/verification', [DocumentVerificationController::class, 'usage'])->middleware('can:documents.approve_usage')->name('verification.index');
+    Route::middleware('can:bpom.manage')->group(function (): void {
+        Route::get('/bpom', [BpomController::class, 'index'])->name('bpom.index');
+        Route::post('/tickets/{ticket}/bpom-submissions', [BpomController::class, 'submit'])->name('bpom.submit');
+        Route::post('/tickets/{ticket}/registration', [BpomController::class, 'openRegistration'])->name('bpom.open-registration');
+        Route::post('/tickets/{ticket}/rejection', [BpomController::class, 'reject'])->name('bpom.reject');
+        Route::post('/bpom-submissions/{submission}/result', [BpomController::class, 'result'])->name('bpom.result');
+        Route::post('/bpom-submissions/{submission}/requests', [BpomController::class, 'requestData'])->name('bpom.requests.store');
+        Route::post('/bpom-requests/{bpomRequest}/respond', [BpomController::class, 'respond'])->name('bpom.requests.respond');
+    });
     Route::middleware('can:invoices.view')->group(function (): void {
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
         Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
