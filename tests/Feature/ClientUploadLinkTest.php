@@ -97,7 +97,7 @@ class ClientUploadLinkTest extends TestCase
         $this->withoutVite()->get("/unggah/{$plain}")->assertOk()
             ->assertHeader('Referrer-Policy', 'no-referrer')
             ->assertHeader('X-Robots-Tag', 'noindex, nofollow')
-            ->assertInertia(fn (Assert $page) => $page->component('Client/UploadLink')
+            ->assertInertia(fn (Assert $page) => $page->component('Client/UploadLink', false)
                 ->where('ticket.code', $this->ticket->code)
                 ->where('ticket.client_pic', 'Nadia')
                 ->where('ticket.phase_label', 'Pra-registrasi')
@@ -117,7 +117,7 @@ class ClientUploadLinkTest extends TestCase
 
         foreach ([$expired, $revoked, Str::random(UploadToken::TOKEN_LENGTH), 'pendek'] as $token) {
             $response = $this->withoutVite()->get("/unggah/{$token}")->assertStatus(410)
-                ->assertInertia(fn (Assert $page) => $page->component('Client/UploadLinkExpired')->missing('ticket')->missing('documents'));
+                ->assertInertia(fn (Assert $page) => $page->component('Client/UploadLinkExpired', false)->missing('ticket')->missing('documents'));
             $this->assertStringNotContainsString($this->ticket->code, $response->getContent());
         }
     }
