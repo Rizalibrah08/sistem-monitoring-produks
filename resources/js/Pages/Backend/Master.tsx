@@ -12,7 +12,7 @@ type StageItem = NamedItem & { code: string; phase: string; phase_label: string;
 type PhaseOption = { value: string; label: string };
 type DocumentTypeItem = NamedItem & {
     phase: string; phase_label: string; scope: string; scope_label: string; requirement: string; requirement_label: string;
-    pic_role: string; pic_label: string; verifier_role: string | null; verifier_label: string | null; requires_expiry_date: boolean; max_age_months: number | null;
+    pic_role: string; pic_label: string; verifier_role: string | null; verifier_label: string | null; requires_expiry_date: boolean; checks_product_name?: boolean; max_age_months: number | null;
 };
 type DocumentOptions = { phases: PhaseOption[]; scopes: PhaseOption[]; requirements: PhaseOption[]; pics: PhaseOption[]; verifiers: PhaseOption[] };
 type CriterionItem = { code: string; name: string; weight: number; type: string };
@@ -283,6 +283,7 @@ function DocumentTypeEditor({ item, options, storeUrl, onClose }: { item: Docume
         pic_role: item?.pic_role ?? options.pics[0]?.value ?? '',
         verifier_role: item?.verifier_role ?? '',
         requires_expiry_date: item?.requires_expiry_date ?? false,
+        checks_product_name: item?.checks_product_name ?? false,
         max_age_months: item?.max_age_months === null || item?.max_age_months === undefined ? '' : String(item.max_age_months),
         is_active: item?.is_active ?? true,
     });
@@ -304,6 +305,8 @@ function DocumentTypeEditor({ item, options, storeUrl, onClose }: { item: Docume
                 <Field label="Verifikator isi" error={form.errors.verifier_role}><Select value={form.data.verifier_role} onChange={(event) => form.setData('verifier_role', event.target.value)}><option value="">Tidak ada (hanya persetujuan RA)</option>{options.verifiers.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></Field>
                 <label className="flex items-center gap-2"><input type="checkbox" checked={form.data.requires_expiry_date} onChange={(event) => form.setData('requires_expiry_date', event.target.checked)} />Memiliki masa berlaku (wajib isi tanggal kedaluwarsa)</label>
                 {form.errors.requires_expiry_date && <p role="alert" className="text-red-700">{form.errors.requires_expiry_date}</p>}
+                <label className="flex items-center gap-2"><input type="checkbox" checked={form.data.checks_product_name} onChange={(event) => form.setData('checks_product_name', event.target.checked)} />Cocokkan nama produk pada PDF teks</label>
+                <p className="text-xs text-gray-500">PDF hasil pindaian tidak dibaca dengan OCR. Pencocokan hanya berlaku untuk dokumen bercakupan tiket.</p>
                 <Field label="Umur maksimal (bulan)" error={form.errors.max_age_months} hint="Opsional. Contoh: CoA paling lama 6 bulan sejak terbit."><input type="number" min={1} max={120} value={form.data.max_age_months} onChange={(event) => form.setData('max_age_months', event.target.value)} /></Field>
                 {item && <ActiveToggle checked={form.data.is_active} error={form.errors.is_active} onChange={(checked) => form.setData('is_active', checked)} />}
                 <EditorFooter processing={form.processing} onClose={onClose} />
@@ -351,7 +354,7 @@ function formatWeight(value: number) {
 }
 
 function validityLabel(type: DocumentTypeItem) {
-    const parts = [type.requires_expiry_date ? 'Ada masa berlaku' : null, type.max_age_months ? `Maks. ${type.max_age_months} bulan` : null].filter(Boolean);
+    const parts = [type.requires_expiry_date ? 'Ada masa berlaku' : null, type.max_age_months ? `Maks. ${type.max_age_months} bulan` : null, type.checks_product_name ? 'Cek nama produk' : null].filter(Boolean);
     return parts.length ? parts.join(' · ') : '—';
 }
 

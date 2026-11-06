@@ -266,7 +266,7 @@ describe('master data', () => {
 
         expect(requests).toEqual([{
             url: '/master/document-types',
-            data: { name: 'Surat kuasa', phase: 'pra_registrasi', scope: 'klien', requirement: 'wajib', pic_role: 'client', verifier_role: '', requires_expiry_date: false, max_age_months: '', is_active: true },
+            data: { name: 'Surat kuasa', phase: 'pra_registrasi', scope: 'klien', requirement: 'wajib', pic_role: 'client', verifier_role: '', requires_expiry_date: false, checks_product_name: false, max_age_months: '', is_active: true },
         }]);
     });
 

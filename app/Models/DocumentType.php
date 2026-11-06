@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * Jenis dokumen pada checklist pendaftaran (FR-06). pic_role berisi role staf
  * atau "client" untuk dokumen yang diunggah klien melalui tautan bertoken (FR-18).
  */
-#[Fillable(['name', 'phase', 'scope', 'requirement', 'pic_role', 'verifier_role', 'requires_expiry_date', 'max_age_months', 'is_active'])]
+#[Fillable(['name', 'phase', 'scope', 'requirement', 'pic_role', 'verifier_role', 'requires_expiry_date', 'max_age_months', 'checks_product_name', 'is_active'])]
 class DocumentType extends Model
 {
     /** @use HasFactory<DocumentTypeFactory> */
@@ -32,6 +32,7 @@ class DocumentType extends Model
     /** @var array<string, mixed> */
     protected $attributes = [
         'requires_expiry_date' => false,
+        'checks_product_name' => false,
         'is_active' => true,
     ];
 
@@ -48,6 +49,7 @@ class DocumentType extends Model
             'requirement' => DocumentRequirement::class,
             'requires_expiry_date' => 'boolean',
             'max_age_months' => 'integer',
+            'checks_product_name' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
