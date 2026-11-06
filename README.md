@@ -4,7 +4,7 @@ Sistem Monitoring Pendaftaran Produk untuk PT Aisha Zahra Herbalaboratories: tik
 
 Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan MySQL 8.4.
 
-> **Status (6 November 2026):** Inkremen 0–4 dan 6 selesai; Inkremen 5 berjalan (SLA dan notifikasi aplikasi selesai, WhatsApp menunggu gateway). Aplikasi belum siap untuk data produksi.
+> **Status (6 November 2026):** Inkremen 0–4, 6, dan 7 selesai; Inkremen 5 berjalan (SLA dan notifikasi aplikasi selesai, WhatsApp menunggu gateway). Aplikasi belum siap untuk data produksi.
 
 ## Progres per inkremen
 
@@ -17,7 +17,7 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 | 4 | Verifikasi, gerbang fase, BPOM, uji laboratorium, tambahan data, NIE | Selesai; pengingat tenggat BPOM dan notifikasi ke PIC/klien menunggu Inkremen 5 |
 | 5 | SLA hari kerja, eskalasi, WhatsApp (notifikasi, chatbot, inbox) | Berjalan; SLA, eskalasi, dan pusat notifikasi selesai; WhatsApp butuh nomor dan gateway |
 | 6 | Antrean prioritas AHP-TOPSIS, dasbor, laporan durasi | Selesai; angka percakapan dan prospek di dasbor menunggu WhatsApp |
-| 7 | Pelengkap: ekspor log, lampiran chat, fitur *Could* | Belum |
+| 7 | Pelengkap: ekspor log, lampiran chat, fitur *Could* | Selesai; lampiran chat dan ringkasan notifikasi per klien menunggu WhatsApp |
 | 8 | UAT, SUS, uji ketepatan perhitungan, deploy akhir | Belum |
 
 ## Fitur yang sudah berjalan
@@ -70,6 +70,12 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 - Antrean prioritas AHP-TOPSIS per role dengan nilai C1–C4, skor, dan alasan urutan; dihitung ulang saat halaman dibuka dan setiap jam (`priorities:compute`).
 - Dasbor per role dengan angka langsung dari data dan tugas teratas; Manajer melihat sebaran tiket per fase dan tahap.
 - Halaman Tugas dokumen, Daftar eskalasi, dan Laporan durasi per tahap (rata-rata, persentil ke-75, waktu internal, menunggu klien, dan pihak luar) dengan ekspor CSV.
+
+**Pelengkap**
+- Ekspor log audit ke CSV dan PDF sesuai filter (tercatat di log), dan verifikasi integritas rantai hash oleh Admin.
+- Sinkronisasi checklist tiket aktif dengan jenis dan aturan dokumen terbaru oleh RA.
+- Halaman Dokumen bersama (QA/QC dan RA) dengan riwayat versi dan unggah dokumen perusahaan, serta halaman Bahan baku tiket (R&D).
+- Pembuatan beberapa tiket sekaligus untuk satu klien.
 
 Modul yang belum dibangun tetap tampil di menu sesuai role dengan keterangan "belum tersedia", tanpa data demo.
 

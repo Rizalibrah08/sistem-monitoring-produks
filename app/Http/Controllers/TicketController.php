@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Actions\CreateTicket;
 use App\DocumentStatus;
+use App\Http\Requests\CreateTicketBatchRequest;
 use App\Http\Requests\CreateTicketRequest;
 use App\Models\Activity;
 use App\Models\BpomRequest;
@@ -33,6 +34,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -133,7 +135,7 @@ class TicketController extends Controller
                 'dosageForms' => DosageForm::query()->where('is_active', true)->orderBy('name')->get()->map(fn (DosageForm $form): array => ['value' => $form->id, 'label' => $form->name]),
                 'categories' => Category::query()->where('is_active', true)->orderBy('name')->get()->map(fn (Category $category): array => ['value' => $category->id, 'label' => $category->name]),
             ] : null,
-            'urls' => ['store' => route('tickets.store', absolute: false), 'clients' => route('clients.index', absolute: false)],
+            'urls' => ['store' => route('tickets.store', absolute: false), 'store_batch' => route('tickets.store-batch', absolute: false), 'clients' => route('clients.index', absolute: false)],
         ]);
     }
 
@@ -142,6 +144,20 @@ class TicketController extends Controller
         $ticket = $create->handle($request->validated(), $request->user());
 
         return redirect()->route('tickets.show', $ticket)->with('status', "Tiket {$ticket->code} berhasil dibuat.");
+    }
+
+    /**
+     * Buat beberapa tiket sekaligus untuk satu klien, satu tiket per produk (FR-23, BR-01).
+     */
+    public function storeBatch(CreateTicketBatchRequest $request, CreateTicket $create): RedirectResponse
+    {
+        $clientId = $request->validated('client_id');
+        $codes = DB::transaction(fn (): array => array_map(
+            fn (array $product): string => $create->handle(['client_id' => $clientId, ...$product], $request->user())->code,
+            $request->validated('products'),
+        ));
+
+        return redirect()->route('tickets.index')->with('status', count($codes).' tiket dibuat: '.implode(', ', $codes).'.');
     }
 
     public function show(Request $request, Ticket $ticket, BpomWorkflow $bpom, ChecklistBuilder $checklistBuilder): Response
