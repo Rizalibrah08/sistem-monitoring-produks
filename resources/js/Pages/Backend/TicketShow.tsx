@@ -1,9 +1,10 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Copy, Download, FileText, FlaskConical, Link2, Plus, Upload } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Download, FileText, FlaskConical, Link2, Plus, Upload } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
 import { Badge, Button, EmptyState, Field, InfoBox, Modal, Panel, Progress, Select } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
+import { sampleTones } from './Samples';
 
 type TicketDetail = {
     id: number;
@@ -45,14 +46,15 @@ type StageEntry = { name: string; started_at: string; due_at: string | null; fin
 type HistoryEntry = { id: number; event: string; label: string; actor: string; created_at: string | null };
 type TicketMaterial = { id: number; name: string; supplier: string | null };
 type Option = { value: number; label: string };
-type MaterialAccess = { manage_materials: boolean; create_material: boolean; manage_upload_links: boolean };
-type MaterialUrls = { materials: string; create_material: string; upload_links: string };
+type MaterialAccess = { manage_materials: boolean; create_material: boolean; manage_upload_links: boolean; record_sample: boolean };
+type MaterialUrls = { materials: string; create_material: string; upload_links: string; samples: string };
+type SampleEntry = { id: number; revision: number; decision: string; decision_label: string; note: string | null; recorded_by: string; recorded_at: string | null };
 type UploadLink = { id: number; phase_label: string; expires_at: string; created_by: string; last_used_at: string | null; revoke_url: string };
 type UploadLinks = { default_days: number; max_days: number; active: UploadLink[] };
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -62,6 +64,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     can: MaterialAccess;
     urls: MaterialUrls;
     uploadLinks: UploadLinks | null;
+    samples: SampleEntry[];
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -95,6 +98,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                     </ol>
                 </Panel>
             </div>
+            <div className="mt-5"><SamplePanel samples={samples} canRecord={can.record_sample} storeUrl={urls.samples} /></div>
             {uploadLinks && <div className="mt-5"><UploadLinkPanel links={uploadLinks} storeUrl={urls.upload_links} /></div>}
             <div className="mt-5">
                 <Panel title="Bahan baku" description="Dokumen asal peredaran bahan yang masih berlaku langsung tertaut; bahan tanpa dokumen muncul sebagai butir checklist." action={can.manage_materials && materialOptions ? <Button variant="secondary" icon={FlaskConical} onClick={() => setChoosingMaterials(true)}>Atur bahan baku</Button> : undefined}>
@@ -255,6 +259,36 @@ function UploadLinkPanel({ links, storeUrl }: { links: UploadLinks; storeUrl: st
                         <Button variant="ghost" aria-label={`Cabut tautan ${link.phase_label}`} onClick={() => router.delete(link.revoke_url, { preserveScroll: true })}>Cabut</Button>
                     </li>)}
                 </ul> : <p className="text-sm text-gray-500">Belum ada tautan aktif.</p>}
+            </div>
+        </Panel>
+    );
+}
+
+function SamplePanel({ samples, canRecord, storeUrl }: { samples: SampleEntry[]; canRecord: boolean; storeUrl: string }) {
+    const form = useForm({ decision: '', note: '' });
+
+    function record(decision: string) {
+        form.transform((data) => ({ ...data, decision }));
+        form.post(storeUrl, { preserveScroll: true, onSuccess: () => form.reset() });
+    }
+
+    return (
+        <Panel title="Persetujuan sampel" description="Keputusan klien atas sampel; nomor revisi bertambah setiap kali dicatat.">
+            <div className="panel-body space-y-4">
+                {samples.length ? <ol className="space-y-2 text-sm">
+                    {samples.map((sample) => <li key={sample.id}>
+                        <strong>Revisi {sample.revision}</strong> <Badge tone={sampleTones[sample.decision]}>{sample.decision_label}</Badge>
+                        <span className="text-gray-500"> · {sample.recorded_by} · {sample.recorded_at}</span>
+                        {sample.note && <p className="mt-1">{sample.note}</p>}
+                    </li>)}
+                </ol> : <p className="text-sm text-gray-500">Belum ada keputusan sampel.</p>}
+                {canRecord && <div className="form-stack">
+                    <Field label="Catatan klien" error={form.errors.note ?? form.errors.decision} hint="Wajib diisi bila klien meminta revisi."><textarea maxLength={2000} value={form.data.note} onChange={(event) => form.setData('note', event.target.value)} placeholder="Tuliskan persetujuan atau masukan dari klien..." /></Field>
+                    <div className="flex flex-wrap gap-2">
+                        <Button variant="secondary" disabled={form.processing} onClick={() => record('perlu_revisi')}>Perlu revisi</Button>
+                        <Button icon={Check} disabled={form.processing} onClick={() => record('disetujui')}>Setujui sampel</Button>
+                    </div>
+                </div>}
             </div>
         </Panel>
     );

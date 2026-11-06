@@ -20,12 +20,6 @@ return [
             'description' => 'Pengajuan awal calon klien dari nomor layanan.', 'empty_title' => 'Belum ada prospek',
             'columns' => ['Nama', 'Kontak', 'Gambaran produk', 'Tanggal masuk', 'Status'],
         ],
-        'samples' => [
-            'title' => 'Persetujuan sampel', 'path' => '/samples', 'route' => 'samples.index', 'icon' => 'flask', 'group' => 'Operasional',
-            'roles' => ['marketing'],
-            'description' => 'Riwayat persetujuan dan revisi sampel oleh klien.', 'empty_title' => 'Belum ada sampel untuk ditinjau',
-            'columns' => ['Tiket', 'Produk', 'Revisi', 'Keputusan klien', 'Tanggal'],
-        ],
         'contracts' => [
             'title' => 'Daftar kontrak', 'label' => 'Kontrak', 'path' => '/contracts', 'route' => 'contracts.index', 'icon' => 'file', 'group' => 'Operasional',
             'roles' => ['marketing'],
