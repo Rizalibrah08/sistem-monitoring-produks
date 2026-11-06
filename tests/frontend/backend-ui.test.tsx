@@ -443,7 +443,7 @@ describe('clients', () => {
     });
 });
 
-const ticketRow = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', progress: 50, created_at: '05/11/2026', show_url: '/tickets/5' };
+const ticketRow = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', needs_review: true, progress: 50, created_at: '05/11/2026', show_url: '/tickets/5' };
 const ticketListProps = {
     tickets: { data: [ticketRow], current_page: 1, last_page: 1, total: 1, prev_page_url: null, next_page_url: null },
     filters: { search: '', phase: '', status: '' },
@@ -452,9 +452,9 @@ const ticketListProps = {
     urls: { store: '/tickets', clients: '/clients' },
 };
 const ticketRoutes = { routes: { tickets: '/tickets' } };
-const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links', samples: '/tickets/5/samples' };
-const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false };
-const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [] };
+const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links', samples: '/tickets/5/samples', resolve_reviews: '/tickets/5/reviews/resolve' };
+const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false, resolve_reviews: false };
+const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [] };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
 type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
@@ -468,6 +468,7 @@ describe('tickets', () => {
         expect(screen.getByRole('link', { name: 'PRD-2026-0001' })).toHaveAttribute('href', '/tickets/5');
         expect(screen.getByText('Kapsul Jahe Merah')).toBeInTheDocument();
         expect(screen.getByText('50%')).toBeInTheDocument();
+        expect(screen.getByText('Perlu ditinjau')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: 'Buat tiket' })).not.toBeInTheDocument();
     });
 
@@ -592,6 +593,7 @@ describe('ticket documents', () => {
                 urls={ticketUrls}
                 uploadLinks={null}
                 samples={[]}
+                reviews={[]}
             />,
             { ...ticketRoutes, auth: { user: { ...staff, role: 'rnd', role_label: 'R&D' }, permissions: ['tickets.view', 'ticket_materials.manage', 'materials.create'] } },
         );
@@ -721,5 +723,32 @@ describe('sample approvals', () => {
         await user.click(screen.getByRole('button', { name: 'Perlu revisi' }));
 
         expect(requests).toEqual([{ url: '/tickets/5/samples', data: { decision: 'perlu_revisi', note: 'Warna perlu lebih terang.' } }]);
+    });
+});
+
+describe('ticket reviews', () => {
+    it('warns that a ticket needs review and lets regulatory affairs resolve it', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url) => {
+            requests.push(url);
+        });
+        renderPage(
+            <TicketShow
+                ticket={ticketDetail}
+                checklist={[]}
+                stages={[]}
+                history={[]}
+                {...noMaterials}
+                can={{ ...noAccess, resolve_reviews: true }}
+                reviews={[{ id: 1, trigger_label: 'Versi baru dokumen bersama', message: 'Dokumen bersama Surat kuasa mendapat versi 2.', flagged_at: '05/11/2026 10:00' }]}
+            />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['tickets.view', 'ticket_reviews.resolve'] } },
+        );
+
+        expect(screen.getByText('Dokumen bersama Surat kuasa mendapat versi 2.')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Tandai sudah ditinjau' }));
+
+        expect(requests).toEqual(['/tickets/5/reviews/resolve']);
     });
 });

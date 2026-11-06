@@ -46,15 +46,16 @@ type StageEntry = { name: string; started_at: string; due_at: string | null; fin
 type HistoryEntry = { id: number; event: string; label: string; actor: string; created_at: string | null };
 type TicketMaterial = { id: number; name: string; supplier: string | null };
 type Option = { value: number; label: string };
-type MaterialAccess = { manage_materials: boolean; create_material: boolean; manage_upload_links: boolean; record_sample: boolean };
-type MaterialUrls = { materials: string; create_material: string; upload_links: string; samples: string };
+type MaterialAccess = { manage_materials: boolean; create_material: boolean; manage_upload_links: boolean; record_sample: boolean; resolve_reviews: boolean };
+type MaterialUrls = { materials: string; create_material: string; upload_links: string; samples: string; resolve_reviews: string };
+type ReviewEntry = { id: number; trigger_label: string; message: string; flagged_at: string | null };
 type SampleEntry = { id: number; revision: number; decision: string; decision_label: string; note: string | null; recorded_by: string; recorded_at: string | null };
 type UploadLink = { id: number; phase_label: string; expires_at: string; created_by: string; last_used_at: string | null; revoke_url: string };
 type UploadLinks = { default_days: number; max_days: number; active: UploadLink[] };
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -65,6 +66,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     urls: MaterialUrls;
     uploadLinks: UploadLinks | null;
     samples: SampleEntry[];
+    reviews: ReviewEntry[];
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -78,6 +80,11 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                 <h1 className="text-2xl font-semibold">{ticket.product_name}</h1>
                 <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{ticket.phase_label}</Badge><Badge>{ticket.current_stage ?? 'Belum ada tahap'}</Badge><Badge tone={ticket.status === 'aktif' ? 'blue' : ticket.status === 'selesai' ? 'green' : 'red'}>{ticket.status_label}</Badge></div>
             </div>
+            {reviews.length > 0 && <div className="mb-5"><InfoBox warning>
+                <strong>Perlu ditinjau</strong>
+                <ul className="mt-1 space-y-1 text-sm">{reviews.map((review) => <li key={review.id}>{review.message} <span className="text-gray-500">· {review.flagged_at}</span></li>)}</ul>
+                {can.resolve_reviews && <Button className="mt-2" variant="secondary" icon={Check} onClick={() => router.post(urls.resolve_reviews, {}, { preserveScroll: true })}>Tandai sudah ditinjau</Button>}
+            </InfoBox></div>}
             <div className="two-column">
                 <Panel title="Informasi produk">
                     <dl className="panel-body grid grid-cols-2 gap-3 text-sm">
