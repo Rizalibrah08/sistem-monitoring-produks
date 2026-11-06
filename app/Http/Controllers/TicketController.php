@@ -24,6 +24,7 @@ use App\Models\UploadToken;
 use App\Models\User;
 use App\SampleDecision;
 use App\Services\BpomWorkflow;
+use App\Services\ChecklistBuilder;
 use App\StaffRole;
 use App\StagePhase;
 use App\SubmissionStatus;
@@ -57,6 +58,7 @@ class TicketController extends Controller
         'ticket.packaging_uploaded' => 'Desain kemasan diunggah',
         'ticket.nie_recorded' => 'NIE terbit',
         'stage.overdue' => 'Tahap melewati tenggat',
+        'checklist.synced' => 'Checklist disinkronkan',
         'ticket.materials_updated' => 'Bahan baku diperbarui',
         'upload_link.created' => 'Tautan unggah klien dibuat',
         'sample.recorded' => 'Keputusan sampel dicatat',
@@ -142,7 +144,7 @@ class TicketController extends Controller
         return redirect()->route('tickets.show', $ticket)->with('status', "Tiket {$ticket->code} berhasil dibuat.");
     }
 
-    public function show(Request $request, Ticket $ticket, BpomWorkflow $bpom): Response
+    public function show(Request $request, Ticket $ticket, BpomWorkflow $bpom, ChecklistBuilder $checklistBuilder): Response
     {
         $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials', 'sampleApprovals.recorder', 'contract.documentTemplate', 'invoices.ticket.client']);
         $user = $request->user();
@@ -253,6 +255,7 @@ class TicketController extends Controller
                 ],
             ],
             'bpom' => $this->bpom($ticket, $user, $bpom),
+            'checklistSync' => $user->can('document_rules.manage') && $ticket->status === TicketStatus::Active ? ChecklistSyncController::row($ticket, $checklistBuilder) : null,
             'labTests' => [
                 'can_manage' => $user->can('lab_tests.manage') && $ticket->status === TicketStatus::Active && in_array($ticket->phase, [StagePhase::PreRegistration, StagePhase::Registration], true),
                 'store_url' => route('lab-tests.store', $ticket, absolute: false),

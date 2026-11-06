@@ -7,6 +7,7 @@ import { BackendLayout } from '../../layouts/backend-layout';
 import { sampleTones } from './Samples';
 import { contractTones } from './Contracts';
 import { InvoiceStatus, type InvoiceRow } from './Invoices';
+import { DifferenceList, type ChecklistDifference } from './ChecklistSync';
 import { ContractForm, rupiah, type ContractDefaults, type ContractOption } from '../../components/contract-form';
 
 type TicketDetail = {
@@ -81,7 +82,7 @@ type UploadLinks = { default_days: number; max_days: number; active: UploadLink[
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions, invoices, bpom, labTests }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions, invoices, bpom, labTests, checklistSync = null }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -98,6 +99,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     invoices: InvoiceRow[];
     bpom: BpomDetail;
     labTests: LabTests;
+    checklistSync?: ChecklistDifference | null;
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -154,6 +156,11 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                     ) : <EmptyState title="Belum ada bahan baku." description="R&D memilih bahan baku produk dari master." icon={FlaskConical} />}
                 </Panel>
             </div>
+            {checklistSync && <div className="mt-5"><InfoBox warning>
+                <strong>Checklist berbeda dengan aturan dokumen terbaru</strong>
+                <div className="my-2"><DifferenceList difference={checklistSync} /></div>
+                <Button variant="secondary" onClick={() => router.post(checklistSync.sync_url, {}, { preserveScroll: true })}>Sinkronkan checklist</Button>
+            </InfoBox></div>}
             <div className="mt-5 two-column">
                 {checklist.map((phase) => (
                     <Panel key={phase.phase} title={`${phase.label} · ${phase.progress}%`}>

@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\BpomController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\ChecklistSyncController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientUploadController;
 use App\Http\Controllers\ContractController;
@@ -159,6 +160,8 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     });
 
     Route::middleware('can:document_rules.manage')->group(function (): void {
+        Route::get('/sync-checklist', [ChecklistSyncController::class, 'index'])->name('checklist_sync.index');
+        Route::post('/tickets/{ticket}/checklist-sync', [ChecklistSyncController::class, 'sync'])->name('checklist_sync.sync');
         Route::get('/document-rules', [DocumentRuleController::class, 'index'])->name('document-rules.index');
         Route::post('/document-rules', [DocumentRuleController::class, 'store'])->name('document-rules.store');
         Route::put('/document-rules/{documentRule}', [DocumentRuleController::class, 'update'])->name('document-rules.update');
