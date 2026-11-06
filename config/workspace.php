@@ -56,18 +56,6 @@ return [
             'description' => 'Nomor Izin Edar dan penyelesaian pendaftaran produk.', 'empty_title' => 'Belum ada tiket yang siap menerima NIE',
             'columns' => ['Tiket', 'Produk', 'Nomor NIE', 'Tanggal terbit'],
         ],
-        'invoices' => [
-            'title' => 'Daftar tagihan', 'label' => 'Tagihan', 'path' => '/invoices', 'route' => 'invoices.index', 'icon' => 'file-clock', 'group' => 'Operasional',
-            'roles' => ['finance', 'manager'],
-            'description' => 'Tagihan DP dan pelunasan per pendaftaran.', 'empty_title' => 'Belum ada tagihan',
-            'columns' => ['Nomor tagihan', 'Klien', 'Tiket', 'Termin', 'Jumlah', 'Jatuh tempo', 'Status'],
-        ],
-        'payments' => [
-            'title' => 'Verifikasi pembayaran', 'path' => '/payments', 'route' => 'payments.index', 'icon' => 'wallet', 'group' => 'Operasional',
-            'roles' => ['finance'],
-            'description' => 'Bukti transfer yang membutuhkan pemeriksaan Finance.', 'empty_title' => 'Belum ada pembayaran untuk diverifikasi',
-            'columns' => ['Tagihan', 'Klien', 'Jumlah', 'Tanggal unggah', 'Status'],
-        ],
         'receivables' => [
             'title' => 'Laporan piutang', 'path' => '/receivables', 'route' => 'receivables.index', 'icon' => 'coins', 'group' => 'Operasional',
             'roles' => ['finance', 'manager'],

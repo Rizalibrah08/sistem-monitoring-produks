@@ -14,6 +14,11 @@ return [
     |
     */
 
+    'midtrans' => [
+        'server_key' => env('MIDTRANS_SERVER_KEY'),
+        'is_production' => (bool) env('MIDTRANS_IS_PRODUCTION', false),
+    ],
+
     'gotenberg' => [
         'url' => env('GOTENBERG_URL', 'http://gotenberg:3000'),
     ],

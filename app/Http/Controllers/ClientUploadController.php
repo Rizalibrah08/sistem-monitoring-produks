@@ -9,12 +9,16 @@ use App\DocumentSource;
 use App\DocumentStatus;
 use App\Http\Requests\ClientDocumentUploadRequest;
 use App\Http\Requests\ClientSignedContractRequest;
+use App\InvoiceStatus;
 use App\Models\Contract;
 use App\Models\DocumentType;
+use App\Models\Invoice;
 use App\Models\TicketDocument;
 use App\Models\UploadToken;
+use App\Services\MidtransSnap;
 use App\TicketStatus;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -53,6 +57,18 @@ class ClientUploadController extends Controller
                 'is_active' => $isActive,
             ],
             'expires_at' => $uploadToken->expires_at->format('d/m/Y H:i'),
+            'invoices' => $ticket->invoices()->orderBy('id')->get()->map(fn (Invoice $invoice): array => [
+                'id' => $invoice->id,
+                'number' => $invoice->number,
+                'term_label' => $invoice->label(),
+                'amount' => $invoice->amount,
+                'due_date' => $invoice->due_date->format('d/m/Y'),
+                'status' => $invoice->status->value,
+                'status_label' => $invoice->status->label(),
+                'is_overdue' => $invoice->isOverdue(now()),
+                'paid_at' => $invoice->paid_at?->format('d/m/Y H:i'),
+                'pay_url' => $invoice->status === InvoiceStatus::Paid ? null : route('client-uploads.invoices.pay', [$token, $invoice], absolute: false),
+            ]),
             'contract' => ($contract = $ticket->contract) === null || $contract->status === ContractStatus::Draft ? null : [
                 'number' => $contract->number,
                 'status' => $contract->status->value,
@@ -127,6 +143,37 @@ class ClientUploadController extends Controller
         $this->usableToken($token)?->update(['last_used_at' => now()]);
 
         return back()->with('status', 'Kontrak bertanda tangan diterima dan menunggu konfirmasi tim kami.');
+    }
+
+    /**
+     * Arahkan klien ke halaman pembayaran Midtrans Snap untuk tagihan tiket ini (FR-76).
+     * Tagihan tetap dapat dibayar walaupun tiketnya sudah ditutup (BR-17).
+     */
+    public function pay(Request $request, string $token, Invoice $invoice, MidtransSnap $snap): Response
+    {
+        $uploadToken = $this->usableToken($token);
+
+        if ($uploadToken === null) {
+            return redirect()->route('client-uploads.show', $token);
+        }
+
+        abort_unless($invoice->ticket_id === $uploadToken->ticket_id, 404);
+
+        if ($invoice->status === InvoiceStatus::Paid) {
+            return back()->with('status', 'Tagihan ini sudah lunas. Terima kasih.');
+        }
+
+        try {
+            $payment = $snap->start($invoice, route('client-uploads.show', $token));
+        } catch (RequestException $exception) {
+            report($exception);
+
+            return back()->withErrors(['invoice' => 'Pembayaran belum dapat dimulai. Coba lagi beberapa saat atau hubungi PIC Marketing Anda.']);
+        }
+
+        $uploadToken->update(['last_used_at' => now()]);
+
+        return Inertia::location((string) $payment->redirect_url);
     }
 
     private function sentContract(string $token): Contract

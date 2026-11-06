@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\ContractStatus;
+use App\InvoiceTerm;
 use App\Models\Contract;
 use App\Models\Stage;
 use App\Models\Ticket;
@@ -14,12 +15,12 @@ use Illuminate\Validation\ValidationException;
 
 class ConfirmContract
 {
-    public function __construct(private AuditLogger $audit) {}
+    public function __construct(private AuditLogger $audit, private IssueInvoice $invoices) {}
 
     /**
      * Marketing mengonfirmasi kontrak bertanda tangan sehingga kontrak aktif (FR-74) dan
      * fase pra-registrasi terbuka (FR-78, BR-16): tiket fase awal berpindah ke tahap
-     * dokumen pra-registrasi.
+     * dokumen pra-registrasi. Tagihan DP terbit tanpa menahan proses (FR-75).
      */
     public function handle(Contract $contract, User $actor): Contract
     {
@@ -33,10 +34,12 @@ class ConfirmContract
             $contract->update(['status' => ContractStatus::Active, 'confirmed_at' => now(), 'confirmed_by' => $actor->id]);
             $ticket = $contract->ticket;
             $opened = $this->openPreRegistration($ticket);
+            $invoice = $this->invoices->handle($contract, InvoiceTerm::DownPayment);
 
             $this->audit->record('contract.confirmed', $contract, ['status' => ContractStatus::Signed->value], [
                 'status' => ContractStatus::Active->value,
                 'pre_registration_opened' => $opened,
+                'dp_invoice' => $invoice->number,
             ], actor: $actor, ticketCode: $ticket->code);
 
             return $contract;

@@ -30,7 +30,8 @@ enum StaffRole: string
     {
         return match ($this) {
             self::Admin => ['dashboard.view', 'users.manage', 'audit.view', 'master.manage', 'materials.create', 'document_rules.manage'],
-            self::Manager => ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view'],
+            self::Manager => ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view', 'invoices.view'],
+            self::Finance => ['dashboard.view', 'invoices.view'],
             self::Marketing => ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create', 'upload_links.manage', 'samples.record', 'contracts.manage'],
             self::Research => ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage'],
             self::Quality => ['dashboard.view', 'tickets.view'],

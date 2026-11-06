@@ -33,7 +33,7 @@ class RolePermissionTest extends TestCase
 
     /** @var list<string> */
     private const ALL_PERMISSIONS = [
-        'audit.view', 'clients.manage', 'contracts.manage', 'dashboard.view', 'document_rules.manage', 'master.manage',
+        'audit.view', 'clients.manage', 'contracts.manage', 'dashboard.view', 'invoices.view', 'document_rules.manage', 'master.manage',
         'materials.create', 'samples.record', 'ticket_materials.manage', 'ticket_reviews.resolve', 'tickets.create', 'tickets.view', 'upload_links.manage', 'users.manage',
     ];
 
@@ -55,12 +55,12 @@ class RolePermissionTest extends TestCase
     {
         return [
             'admin' => ['admin', ['dashboard.view', 'users.manage', 'audit.view', 'master.manage', 'materials.create', 'document_rules.manage']],
-            'manager' => ['manager', ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view']],
+            'manager' => ['manager', ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view', 'invoices.view']],
             'marketing' => ['marketing', ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create', 'upload_links.manage', 'samples.record', 'contracts.manage']],
             'research' => ['rnd', ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage']],
             'quality' => ['qa', ['dashboard.view', 'tickets.view']],
             'regulatory' => ['ra', ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve']],
-            'finance' => ['finance', ['dashboard.view']],
+            'finance' => ['finance', ['dashboard.view', 'invoices.view']],
         ];
     }
 }

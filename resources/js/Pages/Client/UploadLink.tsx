@@ -1,5 +1,5 @@
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { Download, FileSignature, FileText, HeartPulse, Leaf, LockKeyhole, MessageCircle, ShieldCheck, Upload } from 'lucide-react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { CreditCard, Download, FileSignature, FileText, HeartPulse, Leaf, LockKeyhole, MessageCircle, ShieldCheck, Upload, Wallet } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
 import { Badge, Brand, Button, Field, Modal, Progress } from '../../components/ui';
@@ -18,12 +18,13 @@ type ClientDocument = {
     current_version: { version: number; original_name: string; uploaded_at: string | null } | null;
 };
 
+type ClientInvoice = { id: number; number: string; term_label: string; amount: number; due_date: string; status: string; status_label: string; is_overdue: boolean; paid_at: string | null; pay_url: string | null };
 type ClientContract = { number: string; status: string; status_label: string; signed_at: string | null; can_sign: boolean; download_url: string; upload_url: string };
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function UploadLink({ ticket, expires_at, progress, documents, contract }: { ticket: ClientTicket; expires_at: string; progress: number; documents: ClientDocument[]; contract: ClientContract | null }) {
-    const { flash } = usePage<BackendSharedProps>().props;
+export default function UploadLink({ ticket, expires_at, progress, documents, contract, invoices }: { ticket: ClientTicket; expires_at: string; progress: number; documents: ClientDocument[]; contract: ClientContract | null; invoices: ClientInvoice[] }) {
+    const { flash, errors } = usePage<BackendSharedProps & { errors: Record<string, string> }>().props;
     const [uploading, setUploading] = useState<ClientDocument | null>(null);
 
     return (
@@ -54,7 +55,18 @@ export default function UploadLink({ ticket, expires_at, progress, documents, co
                     <Progress value={progress} showLabel={false} />
                 </section>
                 {!ticket.is_active && <p className="info-box info-warning mb-5">Pendaftaran ini sudah tidak aktif, sehingga dokumen tidak dapat diunggah lagi.</p>}
+                {errors.invoice && <p role="alert" className="info-box info-warning mb-5">{errors.invoice}</p>}
                 {contract && <ContractSection contract={contract} />}
+                {invoices.map((invoice) => <section className={`client-invoice-card ${invoice.status === 'lunas' ? 'paid' : ''}`} key={invoice.id}>
+                    <div className="client-doc-title">
+                        <span className="file-icon"><Wallet size={19} /></span>
+                        <div><h3>{invoice.term_label}</h3><small>{invoice.number} · jatuh tempo {invoice.due_date}</small></div>
+                        <Badge tone={invoice.status === 'lunas' ? 'green' : invoice.is_overdue ? 'red' : 'amber'}>{invoice.is_overdue && invoice.status !== 'lunas' ? 'Lewat jatuh tempo' : invoice.status_label}</Badge>
+                    </div>
+                    <strong className="client-amount">Rp{invoice.amount.toLocaleString('id-ID')}</strong>
+                    {invoice.paid_at && <small>Lunas {invoice.paid_at}</small>}
+                    {invoice.pay_url && <Button icon={CreditCard} onClick={() => router.post(invoice.pay_url!)}>{invoice.status === 'menunggu_pembayaran' ? 'Lanjutkan pembayaran' : 'Bayar sekarang'}</Button>}
+                </section>)}
                 <div className="client-section-heading">
                     <span className="client-section-number">01</span>
                     <div>
