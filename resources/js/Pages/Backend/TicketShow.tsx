@@ -109,9 +109,11 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
         <BackendLayout title={`${ticket.code} · ${ticket.product_name}`}>
             <Link href={routes.tickets} className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500"><ArrowLeft size={14} />Daftar tiket</Link>
             <div className="ticket-heading mb-5">
-                <p className="text-sm text-gray-500">{ticket.code}</p>
-                <h1 className="text-2xl font-semibold">{ticket.product_name}</h1>
-                <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{ticket.phase_label}</Badge><Badge>{ticket.current_stage ?? 'Belum ada tahap'}</Badge><Badge tone={ticket.status === 'aktif' ? 'blue' : ticket.status === 'selesai' ? 'green' : 'red'}>{ticket.status_label}</Badge>{ticket.nie_number && <Badge tone="green">NIE {ticket.nie_number} · {ticket.nie_issued_on}</Badge>}</div>
+                <div>
+                    <p className="text-sm text-gray-500">{ticket.code}</p>
+                    <h1 className="text-2xl font-semibold">{ticket.product_name}</h1>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2"><Badge tone="blue">{ticket.phase_label}</Badge><Badge>{ticket.current_stage ?? 'Belum ada tahap'}</Badge><Badge tone={ticket.status === 'aktif' ? 'blue' : ticket.status === 'selesai' ? 'green' : 'red'}>{ticket.status_label}</Badge>{ticket.nie_number && <Badge tone="green">NIE {ticket.nie_number} · {ticket.nie_issued_on}</Badge>}</div>
             </div>
             {reviews.length > 0 && <div className="mb-5"><InfoBox warning>
                 <strong>Perlu ditinjau</strong>
@@ -138,30 +140,12 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                     </ol>
                 </Panel>
             </div>
-            {(contract || can.create_contract) && <div className="mt-5"><ContractPanel ticketId={ticket.id} contract={contract} options={contractOptions} can={can} storeUrl={urls.contract_store} /></div>}
-            {(labTests.tests.length > 0 || labTests.can_manage) && <div className="mt-5"><LabTestPanel labTests={labTests} /></div>}
-            {(bpom.submissions.length > 0 || bpom.can_manage) && <div className="mt-5"><BpomPanel bpom={bpom} phase={ticket.phase} documents={checklist.flatMap((phase) => phase.documents)} /></div>}
-            {invoices.length > 0 && <div className="mt-5"><Panel title="Tagihan" description="Dibayar klien melalui Midtrans; status lunas tercatat otomatis. Tagihan DP tidak menahan proses.">
-                <ul className="panel-body space-y-2 text-sm">{invoices.map((invoice) => <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2">
-                    <span><strong>{invoice.number}</strong> · {invoice.term_label} · {rupiah(invoice.amount)} <span className="text-gray-500">· jatuh tempo {invoice.due_date}{invoice.paid_at ? ` · lunas ${invoice.paid_at}` : ''}</span></span>
-                    <InvoiceStatus invoice={invoice} />
-                </li>)}</ul>
-            </Panel></div>}
-            <div className="mt-5"><SamplePanel samples={samples} canRecord={can.record_sample} storeUrl={urls.samples} /></div>
-            {uploadLinks && <div className="mt-5"><UploadLinkPanel links={uploadLinks} storeUrl={urls.upload_links} /></div>}
-            <div className="mt-5">
-                <Panel title="Bahan baku" description="Dokumen asal peredaran bahan yang masih berlaku langsung tertaut; bahan tanpa dokumen muncul sebagai butir checklist." action={can.manage_materials && materialOptions ? <Button variant="secondary" icon={FlaskConical} onClick={() => setChoosingMaterials(true)}>Atur bahan baku</Button> : undefined}>
-                    {materials.length ? (
-                        <div className="panel-body flex flex-wrap gap-2">{materials.map((material) => <Badge key={material.id} dot={false}>{material.supplier ? `${material.name} · ${material.supplier}` : material.name}</Badge>)}</div>
-                    ) : <EmptyState title="Belum ada bahan baku." description="R&D memilih bahan baku produk dari master." icon={FlaskConical} />}
-                </Panel>
-            </div>
             {checklistSync && <div className="mt-5"><InfoBox warning>
                 <strong>Checklist berbeda dengan aturan dokumen terbaru</strong>
                 <div className="my-2"><DifferenceList difference={checklistSync} /></div>
                 <Button variant="secondary" onClick={() => router.post(checklistSync.sync_url, {}, { preserveScroll: true })}>Sinkronkan checklist</Button>
             </InfoBox></div>}
-            <div className="mt-5 two-column">
+            <div className="mt-5 space-y-5">
                 {checklist.map((phase) => (
                     <Panel key={phase.phase} title={`${phase.label} · ${phase.progress}%`}>
                         <div className="panel-body"><Progress value={phase.progress} showLabel={false} /></div>
@@ -189,6 +173,24 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                 ))}
             </div>
             <div className="mt-5"><InfoBox>Setiap unggahan menjadi versi baru dan langsung divalidasi otomatis. Dokumen yang gagal validasi dikembalikan dengan alasannya. Dokumen yang berlaku untuk kedua fase cukup disiapkan sekali.</InfoBox></div>
+            <div className="mt-5">
+                <Panel title="Bahan baku" description="Dokumen asal peredaran bahan yang masih berlaku langsung tertaut; bahan tanpa dokumen muncul sebagai butir checklist." action={can.manage_materials && materialOptions ? <Button variant="secondary" icon={FlaskConical} onClick={() => setChoosingMaterials(true)}>Atur bahan baku</Button> : undefined}>
+                    {materials.length ? (
+                        <div className="panel-body flex flex-wrap gap-2">{materials.map((material) => <Badge key={material.id} dot={false}>{material.supplier ? `${material.name} · ${material.supplier}` : material.name}</Badge>)}</div>
+                    ) : <EmptyState title="Belum ada bahan baku." description="R&D memilih bahan baku produk dari master." icon={FlaskConical} />}
+                </Panel>
+            </div>
+            <div className="mt-5"><SamplePanel samples={samples} canRecord={can.record_sample} storeUrl={urls.samples} /></div>
+            {(contract || can.create_contract) && <div className="mt-5"><ContractPanel ticketId={ticket.id} contract={contract} options={contractOptions} can={can} storeUrl={urls.contract_store} /></div>}
+            {invoices.length > 0 && <div className="mt-5"><Panel title="Tagihan" description="Dibayar klien melalui Midtrans; status lunas tercatat otomatis. Tagihan DP tidak menahan proses.">
+                <ul className="panel-body space-y-2 text-sm">{invoices.map((invoice) => <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2">
+                    <span><strong>{invoice.number}</strong> · {invoice.term_label} · {rupiah(invoice.amount)} <span className="text-gray-500">· jatuh tempo {invoice.due_date}{invoice.paid_at ? ` · lunas ${invoice.paid_at}` : ''}</span></span>
+                    <InvoiceStatus invoice={invoice} />
+                </li>)}</ul>
+            </Panel></div>}
+            {uploadLinks && <div className="mt-5"><UploadLinkPanel links={uploadLinks} storeUrl={urls.upload_links} /></div>}
+            {(labTests.tests.length > 0 || labTests.can_manage) && <div className="mt-5"><LabTestPanel labTests={labTests} /></div>}
+            {(bpom.submissions.length > 0 || bpom.can_manage) && <div className="mt-5"><BpomPanel bpom={bpom} phase={ticket.phase} documents={checklist.flatMap((phase) => phase.documents)} /></div>}
             <div className="mt-5">
                 <Panel title="Riwayat">
                     <ul className="panel-body space-y-2 text-sm">
