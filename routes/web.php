@@ -24,6 +24,7 @@ use App\Http\Controllers\MidtransNotificationController;
 use App\Http\Controllers\NieController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PreviewController;
+use App\Http\Controllers\PriorityController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\SampleApprovalController;
 use App\Http\Controllers\StageController;
@@ -57,6 +58,7 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     Route::get('/dashboard', DashboardController::class)->middleware('can:dashboard.view')->name('dashboard');
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::get('/priorities', PriorityController::class)->middleware('can:priorities.view')->name('priorities.index');
     Route::get('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/read', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::resource('users', UserController::class)->only(['index', 'store', 'update'])->middleware('can:users.manage');

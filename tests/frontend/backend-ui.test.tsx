@@ -14,6 +14,7 @@ import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
 import Nie from '../../resources/js/Pages/Backend/Nie';
 import Notifications from '../../resources/js/Pages/Backend/Notifications';
+import Priorities from '../../resources/js/Pages/Backend/Priorities';
 import Templates from '../../resources/js/Pages/Backend/Templates';
 import TicketShow from '../../resources/js/Pages/Backend/TicketShow';
 import UploadLink from '../../resources/js/Pages/Client/UploadLink';
@@ -1046,5 +1047,21 @@ describe('notifications', () => {
         await user.click(screen.getByRole('button', { name: 'Tandai semua dibaca (1)' }));
 
         expect(requests).toEqual(['/notifications/read']);
+    });
+});
+
+describe('priority queue', () => {
+    it('shows the ranked tickets with their criteria values and reason', () => {
+        renderPage(
+            <Priorities queue="ra" queue_label="Regulatory Affairs" queues={null} computed_at="06/11/2026 10:00"
+                criteria={[{ code: 'C1', name: 'Critical Ratio', weight: 0.048, type: 'Cost' }]}
+                rows={[{ rank: 1, ticket_id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', phase_label: 'Pra-registrasi', current_stage: 'Dokumen pra-registrasi', c1: -0.5, c2: 2, c3: 50, c4: 10, score: 0.8123, reason: 'Tenggat BPOM tinggal 2 hari kerja.', ticket_url: '/tickets/5' }]} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['priorities.view'] } },
+        );
+
+        expect(screen.getByRole('heading', { name: 'Antrean prioritas Regulatory Affairs' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'PRD-2026-0001' })).toHaveAttribute('href', '/tickets/5');
+        expect(screen.getByText('0.8123')).toBeInTheDocument();
+        expect(screen.getByText('Tenggat BPOM tinggal 2 hari kerja.')).toBeInTheDocument();
     });
 });

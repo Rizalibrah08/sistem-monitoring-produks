@@ -12,3 +12,4 @@ Schedule::command('documents:flag-expiring')->dailyAt('06:00')->withoutOverlappi
 Schedule::command('bpom:expire-pre-registrations')->dailyAt('00:30')->withoutOverlapping();
 Schedule::command('sla:check')->hourly()->withoutOverlapping();
 Schedule::command('notifications:deadlines')->hourly()->withoutOverlapping();
+Schedule::command('priorities:compute')->hourly()->withoutOverlapping();
