@@ -13,6 +13,7 @@ use App\Models\Client;
 use App\Models\Contract;
 use App\Models\DosageForm;
 use App\Models\Invoice;
+use App\Models\LabTest;
 use App\Models\Material;
 use App\Models\SampleApproval;
 use App\Models\Ticket;
@@ -49,6 +50,12 @@ class TicketController extends Controller
         'bpom.pre_registration_expired' => 'Pra-registrasi hangus',
         'ticket.registration_opened' => 'Fase registrasi dibuka',
         'ticket.rejected' => 'Pendaftaran ditolak BPOM',
+        'lab_test.sent' => 'Sampel dikirim ke laboratorium',
+        'lab_test.reanalysis' => 'Analisis ulang laboratorium',
+        'lab_test.result' => 'LHU dicatat',
+        'ticket.packaging_requested' => 'Desain kemasan diminta',
+        'ticket.packaging_uploaded' => 'Desain kemasan diunggah',
+        'ticket.nie_recorded' => 'NIE terbit',
         'ticket.materials_updated' => 'Bahan baku diperbarui',
         'upload_link.created' => 'Tautan unggah klien dibuat',
         'sample.recorded' => 'Keputusan sampel dicatat',
@@ -159,6 +166,8 @@ class TicketController extends Controller
                 'current_stage' => $ticket->currentStage?->name,
                 'created_by' => $ticket->creator->name,
                 'created_at' => $ticket->created_at?->format('d/m/Y H:i'),
+                'nie_number' => $ticket->nie_number,
+                'nie_issued_on' => $ticket->nie_issued_on?->format('d/m/Y'),
             ],
             'checklist' => collect([StagePhase::PreRegistration, StagePhase::Registration])->map(fn (StagePhase $phase): array => [
                 'phase' => $phase->value,
@@ -241,6 +250,22 @@ class TicketController extends Controller
                 ],
             ],
             'bpom' => $this->bpom($ticket, $user, $bpom),
+            'labTests' => [
+                'can_manage' => $user->can('lab_tests.manage') && $ticket->status === TicketStatus::Active && in_array($ticket->phase, [StagePhase::PreRegistration, StagePhase::Registration], true),
+                'store_url' => route('lab-tests.store', $ticket, absolute: false),
+                'tests' => $ticket->labTests()->orderBy('attempt')->get()->map(fn (LabTest $test): array => [
+                    'id' => $test->id,
+                    'attempt' => $test->attempt,
+                    'laboratory' => $test->laboratory,
+                    'sent_on' => $test->sent_on->format('d/m/Y'),
+                    'estimated_on' => $test->estimated_on->format('d/m/Y'),
+                    'result_on' => $test->result_on?->format('d/m/Y'),
+                    'conforms' => $test->conforms,
+                    'note' => $test->note,
+                    'file_url' => $test->result_path === null ? null : route('lab-tests.file', $test, absolute: false),
+                    'result_url' => route('lab-tests.result', $test, absolute: false),
+                ]),
+            ],
             'invoices' => $ticket->invoices->sortBy('id')->map(fn (Invoice $invoice): array => InvoiceController::row($invoice))->values(),
             'contractOptions' => $canManageContract ? [
                 'templates' => ContractController::templateOptions(),
@@ -305,6 +330,9 @@ class TicketController extends Controller
             'can_manage' => $canManage && $ticket->status === TicketStatus::Active,
             'can_submit' => in_array($ticket->phase, [StagePhase::PreRegistration, StagePhase::Registration], true)
                 && ! $submissions->contains(fn (BpomSubmission $submission): bool => $submission->phase === $ticket->phase && $submission->status !== SubmissionStatus::Expired),
+            'can_complete' => $canManage && $ticket->status === TicketStatus::Active && $submissions->contains(fn (BpomSubmission $submission): bool => $submission->phase === StagePhase::Registration && $submission->status === SubmissionStatus::AwaitingResult),
+            'packaging_requested_on' => $ticket->packaging_requested_on?->format('d/m/Y'),
+            'packaging_uploaded_on' => $ticket->packaging_uploaded_on?->format('d/m/Y'),
             'can_reject' => $submissions->flatMap->requests->contains('sequence', BpomRequest::MAX_SEQUENCE),
             'registration_blockers' => $ticket->phase === StagePhase::PreRegistration ? $workflow->registrationBlockers($ticket, now()) : null,
             'submissions' => $submissions->map(fn (BpomSubmission $submission): array => [
@@ -338,6 +366,8 @@ class TicketController extends Controller
                 'submit' => route('bpom.submit', $ticket, absolute: false),
                 'open_registration' => route('bpom.open-registration', $ticket, absolute: false),
                 'reject' => route('bpom.reject', $ticket, absolute: false),
+                'packaging' => route('nie.packaging', $ticket, absolute: false),
+                'nie' => route('nie.store', $ticket, absolute: false),
             ],
         ];
     }

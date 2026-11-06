@@ -32,12 +32,6 @@ return [
             'description' => 'Bahan baku produk dan dokumen asal peredarannya.', 'empty_title' => 'Belum ada bahan baku tiket',
             'columns' => ['Tiket', 'Bahan baku', 'Dokumen terkait', 'Status'],
         ],
-        'nie' => [
-            'title' => 'Input NIE', 'path' => '/nie', 'route' => 'nie.index', 'icon' => 'shield', 'group' => 'Operasional',
-            'roles' => ['ra'],
-            'description' => 'Nomor Izin Edar dan penyelesaian pendaftaran produk.', 'empty_title' => 'Belum ada tiket yang siap menerima NIE',
-            'columns' => ['Tiket', 'Produk', 'Nomor NIE', 'Tanggal terbit'],
-        ],
         'inbox' => [
             'title' => 'Kotak masuk WhatsApp', 'label' => 'Kotak masuk', 'path' => '/inbox', 'route' => 'inbox.index', 'icon' => 'message', 'group' => 'Komunikasi',
             'roles' => ['marketing', 'ra', 'manager'],

@@ -25,6 +25,8 @@ type TicketDetail = {
     current_stage: string | null;
     created_by: string;
     created_at: string | null;
+    nie_number?: string | null;
+    nie_issued_on?: string | null;
 };
 type DocumentVersion = { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string };
 type ChecklistDocument = {
@@ -65,9 +67,12 @@ type BpomSubmissionEntry = {
     requests: BpomRequestEntry[]; urls: { result: string; request: string };
 };
 type BpomDetail = {
-    can_manage: boolean; can_submit: boolean; can_reject: boolean; registration_blockers: string[] | null;
-    submissions: BpomSubmissionEntry[]; urls: { submit: string; open_registration: string; reject: string };
+    can_manage: boolean; can_submit: boolean; can_reject: boolean; can_complete: boolean; registration_blockers: string[] | null;
+    packaging_requested_on: string | null; packaging_uploaded_on: string | null;
+    submissions: BpomSubmissionEntry[]; urls: { submit: string; open_registration: string; reject: string; packaging: string; nie: string };
 };
+type LabTestEntry = { id: number; attempt: number; laboratory: string; sent_on: string; estimated_on: string; result_on: string | null; conforms: boolean | null; note: string | null; file_url: string | null; result_url: string };
+type LabTests = { can_manage: boolean; store_url: string; tests: LabTestEntry[] };
 type ContractOptions = { templates: ContractOption[]; defaults: ContractDefaults };
 type ReviewEntry = { id: number; trigger_label: string; message: string; flagged_at: string | null };
 type SampleEntry = { id: number; revision: number; decision: string; decision_label: string; note: string | null; recorded_by: string; recorded_at: string | null };
@@ -76,7 +81,7 @@ type UploadLinks = { default_days: number; max_days: number; active: UploadLink[
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions, invoices, bpom }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions, invoices, bpom, labTests }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -92,6 +97,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     contractOptions: ContractOptions | null;
     invoices: InvoiceRow[];
     bpom: BpomDetail;
+    labTests: LabTests;
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -103,7 +109,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
             <div className="ticket-heading mb-5">
                 <p className="text-sm text-gray-500">{ticket.code}</p>
                 <h1 className="text-2xl font-semibold">{ticket.product_name}</h1>
-                <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{ticket.phase_label}</Badge><Badge>{ticket.current_stage ?? 'Belum ada tahap'}</Badge><Badge tone={ticket.status === 'aktif' ? 'blue' : ticket.status === 'selesai' ? 'green' : 'red'}>{ticket.status_label}</Badge></div>
+                <div className="mt-2 flex flex-wrap gap-2"><Badge tone="blue">{ticket.phase_label}</Badge><Badge>{ticket.current_stage ?? 'Belum ada tahap'}</Badge><Badge tone={ticket.status === 'aktif' ? 'blue' : ticket.status === 'selesai' ? 'green' : 'red'}>{ticket.status_label}</Badge>{ticket.nie_number && <Badge tone="green">NIE {ticket.nie_number} · {ticket.nie_issued_on}</Badge>}</div>
             </div>
             {reviews.length > 0 && <div className="mb-5"><InfoBox warning>
                 <strong>Perlu ditinjau</strong>
@@ -131,6 +137,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                 </Panel>
             </div>
             {(contract || can.create_contract) && <div className="mt-5"><ContractPanel ticketId={ticket.id} contract={contract} options={contractOptions} can={can} storeUrl={urls.contract_store} /></div>}
+            {(labTests.tests.length > 0 || labTests.can_manage) && <div className="mt-5"><LabTestPanel labTests={labTests} /></div>}
             {(bpom.submissions.length > 0 || bpom.can_manage) && <div className="mt-5"><BpomPanel bpom={bpom} phase={ticket.phase} documents={checklist.flatMap((phase) => phase.documents)} /></div>}
             {invoices.length > 0 && <div className="mt-5"><Panel title="Tagihan" description="Dibayar klien melalui Midtrans; status lunas tercatat otomatis. Tagihan DP tidak menahan proses.">
                 <ul className="panel-body space-y-2 text-sm">{invoices.map((invoice) => <li key={invoice.id} className="flex flex-wrap items-center justify-between gap-2">
@@ -413,6 +420,7 @@ function BpomPanel({ bpom, phase, documents }: { bpom: BpomDetail; phase: string
                     {bpom.registration_blockers.length ? <ul className="mt-1 list-disc pl-5">{bpom.registration_blockers.map((blocker) => <li key={blocker}>{blocker}</li>)}</ul> : <p className="text-green-700">Semua syarat terpenuhi.</p>}
                     {bpom.can_manage && <Button className="mt-2" disabled={bpom.registration_blockers.length > 0} onClick={() => router.post(bpom.urls.open_registration, {}, { preserveScroll: true })}>Buka fase registrasi</Button>}
                 </div>}
+                {bpom.can_complete && <CompletionForms bpom={bpom} />}
                 {bpom.can_manage && bpom.can_reject && <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); reject.post(bpom.urls.reject, { preserveScroll: true }); }}>
                     <Field label="Alasan penolakan BPOM" error={reject.errors.reason}><input required value={reject.data.reason} onChange={(event) => reject.setData('reason', event.target.value)} /></Field>
                     <Button type="submit" variant="danger" disabled={reject.processing}>Catat ditolak dan tutup tiket</Button>
@@ -454,6 +462,72 @@ function RequestDialog({ submission, documents, onClose }: { submission: BpomSub
                     </label>)}
                 </fieldset>
                 <div className="form-footer"><Button variant="secondary" onClick={onClose}>Batal</Button><Button type="submit" disabled={form.processing}>Simpan tambahan data</Button></div>
+            </form>
+        </Modal>
+    );
+}
+
+function CompletionForms({ bpom }: { bpom: BpomDetail }) {
+    const packaging = useForm({ action: bpom.packaging_requested_on ? 'uploaded' : 'requested', date: '' });
+    const nie = useForm({ nie_number: '', nie_issued_on: '' });
+
+    return (
+        <div className="space-y-3">
+            <p><strong>Desain kemasan</strong> · {bpom.packaging_uploaded_on ? `diunggah ${bpom.packaging_uploaded_on}` : bpom.packaging_requested_on ? `diminta ${bpom.packaging_requested_on}` : 'belum diminta BPOM'}</p>
+            {!bpom.packaging_uploaded_on && <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); packaging.post(bpom.urls.packaging, { preserveScroll: true, onSuccess: () => packaging.reset('date') }); }}>
+                <Field label={bpom.packaging_requested_on ? 'Tanggal desain diunggah' : 'Tanggal permintaan desain'} error={packaging.errors.date}><input type="date" required value={packaging.data.date} onChange={(event) => packaging.setData('date', event.target.value)} /></Field>
+                <Button type="submit" variant="secondary" disabled={packaging.processing}>{bpom.packaging_requested_on ? 'Catat desain diunggah' : 'Catat permintaan desain'}</Button>
+            </form>}
+            <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); nie.post(bpom.urls.nie, { preserveScroll: true }); }}>
+                <Field label="Nomor NIE" error={nie.errors.nie_number}><input required maxLength={50} value={nie.data.nie_number} onChange={(event) => nie.setData('nie_number', event.target.value)} /></Field>
+                <Field label="Tanggal terbit NIE" error={nie.errors.nie_issued_on}><input type="date" required value={nie.data.nie_issued_on} onChange={(event) => nie.setData('nie_issued_on', event.target.value)} /></Field>
+                <Button type="submit" icon={Check} disabled={nie.processing}>Simpan NIE dan tutup tiket</Button>
+            </form>
+        </div>
+    );
+}
+
+function LabTestPanel({ labTests }: { labTests: LabTests }) {
+    const send = useForm({ laboratory: '', sent_on: '', estimated_on: '' });
+    const [recording, setRecording] = useState<LabTestEntry | null>(null);
+    const latest = labTests.tests.at(-1);
+    const canSend = labTests.can_manage && (!latest || (latest.result_on !== null && latest.conforms === false));
+
+    return (
+        <Panel title="Uji laboratorium eksternal" description="Berjalan sejajar dengan pra-registrasi; LHU yang sesuai spesifikasi menjadi syarat fase registrasi.">
+            <div className="panel-body space-y-3 text-sm">
+                {labTests.tests.map((test) => <div key={test.id}>
+                    <strong>{test.attempt > 1 ? `Analisis ulang ${test.attempt - 1}` : 'Pengiriman pertama'}</strong> · {test.laboratory} · dikirim {test.sent_on} · perkiraan {test.estimated_on}{' '}
+                    {test.result_on ? <Badge tone={test.conforms ? 'green' : 'red'}>{test.conforms ? 'Sesuai spesifikasi' : 'Tidak sesuai'}</Badge> : <Badge tone="amber">Menunggu LHU</Badge>}
+                    {test.note && <p className="text-red-700">{test.note}</p>}
+                    <div className="mt-1 flex flex-wrap gap-2">
+                        {test.file_url && <a className="btn btn-ghost" href={test.file_url}><Download size={16} strokeWidth={1.8} />LHU</a>}
+                        {labTests.can_manage && !test.result_on && <Button variant="secondary" onClick={() => setRecording(test)}>Unggah LHU</Button>}
+                    </div>
+                </div>)}
+                {canSend && <form className="flex flex-wrap items-end gap-3" onSubmit={(event) => { event.preventDefault(); send.post(labTests.store_url, { preserveScroll: true, onSuccess: () => send.reset() }); }}>
+                    <Field label="Laboratorium" error={send.errors.laboratory}><input required maxLength={150} value={send.data.laboratory} onChange={(event) => send.setData('laboratory', event.target.value)} /></Field>
+                    <Field label="Tanggal kirim" error={send.errors.sent_on}><input type="date" required value={send.data.sent_on} onChange={(event) => send.setData('sent_on', event.target.value)} /></Field>
+                    <Field label="Perkiraan selesai" error={send.errors.estimated_on}><input type="date" required value={send.data.estimated_on} onChange={(event) => send.setData('estimated_on', event.target.value)} /></Field>
+                    <Button type="submit" disabled={send.processing}>{latest ? 'Catat analisis ulang' : 'Catat pengiriman sampel'}</Button>
+                </form>}
+            </div>
+            {recording && <LabResultDialog key={recording.id} test={recording} onClose={() => setRecording(null)} />}
+        </Panel>
+    );
+}
+
+function LabResultDialog({ test, onClose }: { test: LabTestEntry; onClose: () => void }) {
+    const form = useForm<{ result_on: string; conforms: string; note: string; file: File | null }>({ result_on: '', conforms: '1', note: '', file: null });
+
+    return (
+        <Modal title="Unggah lembar hasil uji" description={`${test.laboratory} · dikirim ${test.sent_on}`} onClose={onClose}>
+            <form className="form-stack" onSubmit={(event) => { event.preventDefault(); form.post(test.result_url, { preserveScroll: true, onSuccess: onClose }); }}>
+                <Field label="Tanggal LHU" error={form.errors.result_on}><input type="date" required value={form.data.result_on} onChange={(event) => form.setData('result_on', event.target.value)} /></Field>
+                <Field label="Hasil" error={form.errors.conforms}><Select value={form.data.conforms} onChange={(event) => form.setData('conforms', event.target.value)}><option value="1">Sesuai spesifikasi</option><option value="0">Tidak sesuai spesifikasi</option></Select></Field>
+                {form.data.conforms === '0' && <Field label="Parameter yang tidak sesuai" error={form.errors.note}><textarea required maxLength={2000} value={form.data.note} onChange={(event) => form.setData('note', event.target.value)} /></Field>}
+                <Field label="Berkas LHU" error={form.errors.file}><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => form.setData('file', event.target.files?.[0] ?? null)} /></Field>
+                <div className="form-footer"><Button variant="secondary" onClick={onClose}>Batal</Button><Button type="submit" disabled={form.processing || !form.data.file}>Simpan LHU</Button></div>
             </form>
         </Modal>
     );

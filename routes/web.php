@@ -17,9 +17,11 @@ use App\Http\Controllers\DocumentVersionDownloadController;
 use App\Http\Controllers\DosageFormController;
 use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\LabTestController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MidtransNotificationController;
+use App\Http\Controllers\NieController;
 use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\SampleApprovalController;
@@ -87,6 +89,7 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::post('/tickets/{ticket}/documents/{ticketDocument}/versions', [TicketDocumentVersionController::class, 'store'])->name('tickets.documents.versions.store');
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
         Route::post('/ticket-documents/{ticketDocument}/reviews/{level}', [DocumentVerificationController::class, 'store'])->whereIn('level', ['isi', 'pemakaian'])->name('ticket-documents.reviews.store');
+        Route::get('/lab-tests/{labTest}/file', [LabTestController::class, 'file'])->name('lab-tests.file');
         Route::get('/bpom-submissions/{submission}/result', [BpomController::class, 'resultFile'])->name('bpom.result-file');
         Route::get('/contracts/{contract}/files/{file}', [ContractController::class, 'download'])->whereIn('file', ['word', 'pdf', 'signed'])->name('contracts.files');
     });
@@ -94,7 +97,14 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
     Route::get('/qa-review', [DocumentVerificationController::class, 'quality'])->middleware('can:documents.verify_content')->name('quality.index');
     Route::get('/verification', [DocumentVerificationController::class, 'usage'])->middleware('can:documents.approve_usage')->name('verification.index');
+    Route::middleware('can:lab_tests.manage')->group(function (): void {
+        Route::post('/tickets/{ticket}/lab-tests', [LabTestController::class, 'store'])->name('lab-tests.store');
+        Route::post('/lab-tests/{labTest}/result', [LabTestController::class, 'result'])->name('lab-tests.result');
+    });
     Route::middleware('can:bpom.manage')->group(function (): void {
+        Route::get('/nie', [NieController::class, 'index'])->name('nie.index');
+        Route::post('/tickets/{ticket}/packaging', [NieController::class, 'packaging'])->name('nie.packaging');
+        Route::post('/tickets/{ticket}/nie', [NieController::class, 'store'])->name('nie.store');
         Route::get('/bpom', [BpomController::class, 'index'])->name('bpom.index');
         Route::post('/tickets/{ticket}/bpom-submissions', [BpomController::class, 'submit'])->name('bpom.submit');
         Route::post('/tickets/{ticket}/registration', [BpomController::class, 'openRegistration'])->name('bpom.open-registration');

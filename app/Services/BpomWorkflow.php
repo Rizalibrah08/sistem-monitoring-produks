@@ -196,7 +196,8 @@ class BpomWorkflow
     }
 
     /**
-     * Syarat pembukaan fase registrasi yang belum terpenuhi (FR-31, FR-88).
+     * Syarat pembukaan fase registrasi yang belum terpenuhi, termasuk LHU uji laboratorium
+     * yang sesuai spesifikasi (FR-31, FR-88).
      *
      * @return list<string>
      */
@@ -215,6 +216,10 @@ class BpomWorkflow
             $blockers[] = 'Hasil pra-registrasi belum dicatat dan diunggah.';
         } elseif ($submission->registration_deadline->lt($today->copy()->startOfDay())) {
             $blockers[] = 'Tenggat pengajuan registrasi sudah lewat; pra-registrasi hangus.';
+        }
+
+        if (! $ticket->labTests()->where('conforms', true)->exists()) {
+            $blockers[] = 'LHU uji laboratorium yang sesuai spesifikasi belum diunggah.';
         }
 
         return $blockers;

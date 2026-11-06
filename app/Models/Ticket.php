@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /** Satu tiket untuk satu produk yang didaftarkan ke BPOM (BR-01). */
-#[Fillable(['code', 'client_id', 'product_name', 'dosage_form_id', 'category_id', 'phase', 'current_stage_id', 'status', 'created_by'])]
+#[Fillable(['code', 'client_id', 'product_name', 'dosage_form_id', 'category_id', 'phase', 'current_stage_id', 'status', 'created_by', 'packaging_requested_on', 'packaging_uploaded_on', 'nie_number', 'nie_issued_on'])]
 class Ticket extends Model
 {
     /** @use HasFactory<TicketFactory> */
@@ -38,6 +38,9 @@ class Ticket extends Model
             'created_by' => 'integer',
             'phase' => StagePhase::class,
             'status' => TicketStatus::class,
+            'packaging_requested_on' => 'date',
+            'packaging_uploaded_on' => 'date',
+            'nie_issued_on' => 'date',
         ];
     }
 
@@ -113,6 +116,25 @@ class Ticket extends Model
         }
 
         return $stage;
+    }
+
+    /**
+     * Buka log tahap yang berjalan berdampingan dengan tahap utama, misalnya uji
+     * laboratorium yang sejajar dengan pra-registrasi (BR-24); log yang masih berjalan dipakai ulang.
+     */
+    public function startParallelStage(string $code): void
+    {
+        $stage = Stage::query()->where('code', $code)->where('is_active', true)->first();
+
+        if ($stage !== null && ! $this->stageLogs()->where('stage_id', $stage->id)->whereNull('finished_at')->exists()) {
+            $this->stageLogs()->create(['stage_id' => $stage->id, 'started_at' => now()]);
+        }
+    }
+
+    /** @return HasMany<LabTest, $this> */
+    public function labTests(): HasMany
+    {
+        return $this->hasMany(LabTest::class);
     }
 
     /** Tutup log tahap tertentu yang masih berjalan tanpa membuka tahap baru. */
