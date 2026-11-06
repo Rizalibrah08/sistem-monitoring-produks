@@ -78,6 +78,7 @@ class MasterDataController extends Controller
                 'verifier_label' => DocumentType::roleLabel($type->verifier_role),
                 'requires_expiry_date' => $type->requires_expiry_date,
                 'max_age_months' => $type->max_age_months,
+                'checks_product_name' => $type->checks_product_name,
                 'is_active' => $type->is_active,
                 'update_url' => route('master.document-types.update', $type, absolute: false),
             ]),

@@ -4,12 +4,16 @@ namespace App\Services;
 
 use App\Models\DocumentType;
 use Carbon\CarbonInterface;
+use Illuminate\Http\UploadedFile;
 
 class DocumentValidator
 {
+    public function __construct(private PdfText $pdf) {}
+
     /**
      * Pemeriksaan otomatis sebelum verifikasi manual (FR-71): umur dokumen terhadap batas
-     * jenisnya dan masa berlaku. Format, ukuran, dan kolom wajib diperiksa saat unggah.
+     * jenisnya dan masa berlaku. Format, ukuran, dan kolom wajib diperiksa saat unggah;
+     * nama produk pada PDF diperiksa terpisah oleh productNameErrors().
      *
      * @return list<string> alasan kegagalan; kosong berarti lolos
      */
@@ -27,5 +31,22 @@ class DocumentValidator
         }
 
         return $errors;
+    }
+
+    /**
+     * Untuk jenis dokumen yang mewajibkannya (FR-72), nama produk tiket harus tertulis pada
+     * PDF berbasis teks (FR-71). Berkas selain PDF dan PDF tanpa teks tidak dinilai.
+     *
+     * @return list<string>
+     */
+    public function productNameErrors(DocumentType $type, ?string $productName, UploadedFile $file): array
+    {
+        if (! $type->checks_product_name || blank($productName) || strtolower($file->getClientOriginalExtension()) !== 'pdf') {
+            return [];
+        }
+
+        $text = $this->pdf->read((string) $file->getRealPath());
+
+        return $text === null || $this->pdf->contains($text, $productName) ? [] : ["Nama produk \u{201C}{$productName}\u{201D} tidak ditemukan pada PDF."];
     }
 }

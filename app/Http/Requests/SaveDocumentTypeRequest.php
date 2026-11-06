@@ -36,6 +36,7 @@ class SaveDocumentTypeRequest extends FormRequest
             'verifier_role' => ['nullable', Rule::in(DocumentType::VERIFIER_ROLES)],
             'requires_expiry_date' => ['required', 'boolean'],
             'max_age_months' => ['nullable', 'integer', 'min:1', 'max:120'],
+            'checks_product_name' => ['sometimes', 'boolean'],
             'is_active' => ['required', 'boolean'],
         ];
     }

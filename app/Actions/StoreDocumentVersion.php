@@ -43,7 +43,8 @@ class StoreDocumentVersion
             return DB::transaction(function () use ($item, $file, $data, $actor, $source, &$storedPath): DocumentVersion {
                 $item->loadMissing(['ticket', 'documentType']);
                 $document = $this->documentFor($item);
-                $version = $this->createVersion($document, $item->documentType, $file, $data, $actor, $source, $storedPath);
+                $productName = $item->documentType->scope === DocumentScope::Ticket ? $item->ticket->product_name : null;
+                $version = $this->createVersion($document, $item->documentType, $file, $data, $actor, $source, $storedPath, $productName);
                 $errors = $version->validation_errors;
                 $number = $version->version;
                 $before = ['status' => $item->status->value];
@@ -121,17 +122,18 @@ class StoreDocumentVersion
 
     /**
      * Simpan berkas sebagai versi berikutnya dokumen beserta hasil validasi otomatisnya, lalu
-     * jadikan versi terkini. Dokumen dikunci agar nomor versi tidak bertabrakan.
+     * jadikan versi terkini. Dokumen dikunci agar nomor versi tidak bertabrakan. Nama produk
+     * hanya diperiksa untuk dokumen milik satu tiket.
      *
      * @param  array{number: string, issued_at?: ?string, expires_at?: ?string}  $data
      */
-    private function createVersion(Document $document, DocumentType $type, UploadedFile $file, array $data, ?User $actor, DocumentSource $source, ?string &$storedPath): DocumentVersion
+    private function createVersion(Document $document, DocumentType $type, UploadedFile $file, array $data, ?User $actor, DocumentSource $source, ?string &$storedPath, ?string $productName = null): DocumentVersion
     {
         Document::query()->whereKey($document->id)->lockForUpdate()->first();
 
         $issuedAt = filled($data['issued_at'] ?? null) ? Carbon::parse($data['issued_at']) : null;
         $expiresAt = filled($data['expires_at'] ?? null) ? Carbon::parse($data['expires_at']) : null;
-        $errors = $this->validator->errors($type, $issuedAt, $expiresAt, now());
+        $errors = [...$this->validator->errors($type, $issuedAt, $expiresAt, now()), ...$this->validator->productNameErrors($type, $productName, $file)];
 
         $number = (int) $document->versions()->max('version') + 1;
         $extension = strtolower($file->getClientOriginalExtension());
