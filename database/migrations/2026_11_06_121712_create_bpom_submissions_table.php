@@ -34,7 +34,7 @@ return new class extends Migration
             $table->foreignId('ticket_document_id')->constrained()->restrictOnDelete();
             $table->foreignId('document_version_id')->constrained()->restrictOnDelete();
 
-            $table->unique(['bpom_submission_id', 'ticket_document_id']);
+            $table->unique(['bpom_submission_id', 'ticket_document_id'], 'bpom_submission_documents_unique');
         });
     }
 
