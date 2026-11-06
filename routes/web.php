@@ -16,6 +16,7 @@ use App\Http\Controllers\HolidayController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\PreviewController;
+use App\Http\Controllers\SampleApprovalController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketDocumentVersionController;
@@ -76,6 +77,10 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
+    Route::middleware('can:samples.record')->group(function (): void {
+        Route::get('/samples', [SampleApprovalController::class, 'index'])->name('samples.index');
+        Route::post('/tickets/{ticket}/samples', [SampleApprovalController::class, 'store'])->name('tickets.samples.store');
+    });
     Route::middleware('can:upload_links.manage')->group(function (): void {
         Route::post('/tickets/{ticket}/upload-links', [UploadTokenController::class, 'store'])->name('tickets.upload-links.store');
         Route::delete('/tickets/{ticket}/upload-links/{uploadToken}', [UploadTokenController::class, 'destroy'])->name('tickets.upload-links.destroy');

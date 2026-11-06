@@ -10,10 +10,12 @@ use App\Models\Category;
 use App\Models\Client;
 use App\Models\DosageForm;
 use App\Models\Material;
+use App\Models\SampleApproval;
 use App\Models\Ticket;
 use App\Models\TicketDocument;
 use App\Models\TicketStageLog;
 use App\Models\UploadToken;
+use App\SampleDecision;
 use App\StaffRole;
 use App\StagePhase;
 use App\TicketStatus;
@@ -33,6 +35,7 @@ class TicketController extends Controller
         'document.uploaded' => 'Dokumen diunggah',
         'ticket.materials_updated' => 'Bahan baku diperbarui',
         'upload_link.created' => 'Tautan unggah klien dibuat',
+        'sample.recorded' => 'Keputusan sampel dicatat',
         'upload_link.revoked' => 'Tautan unggah klien dicabut',
     ];
 
@@ -103,11 +106,12 @@ class TicketController extends Controller
 
     public function show(Request $request, Ticket $ticket): Response
     {
-        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials']);
+        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials', 'sampleApprovals.recorder']);
         $user = $request->user();
         abort_unless($ticket->isVisibleTo($user), 403);
         $canManageMaterials = $user->can('ticket_materials.manage');
         $canManageUploadLinks = $user->can('upload_links.manage');
+        $sampleApproved = $ticket->sampleApprovals->contains(fn (SampleApproval $approval): bool => $approval->decision === SampleDecision::Approved);
 
         return Inertia::render('Backend/TicketShow', [
             'ticket' => [
@@ -168,12 +172,23 @@ class TicketController extends Controller
                 ->where('is_active', true)->orWhereIn('id', $ticket->materials->modelKeys())
                 ->orderBy('name')->get()
                 ->map(fn (Material $material): array => ['value' => $material->id, 'label' => $material->supplier ? "{$material->name} ({$material->supplier})" : $material->name]) : null,
-            'can' => ['manage_materials' => $canManageMaterials, 'create_material' => $user->can('materials.create'), 'manage_upload_links' => $canManageUploadLinks],
+            'can' => ['manage_materials' => $canManageMaterials, 'create_material' => $user->can('materials.create'), 'manage_upload_links' => $canManageUploadLinks,
+                'record_sample' => $user->can('samples.record') && $ticket->status === TicketStatus::Active && ! $sampleApproved],
             'urls' => [
                 'materials' => route('tickets.materials.update', $ticket, absolute: false),
                 'create_material' => route('master.materials.store', absolute: false),
                 'upload_links' => route('tickets.upload-links.store', $ticket, absolute: false),
+                'samples' => route('tickets.samples.store', $ticket, absolute: false),
             ],
+            'samples' => $ticket->sampleApprovals->sortByDesc('revision')->map(fn (SampleApproval $approval): array => [
+                'id' => $approval->id,
+                'revision' => $approval->revision,
+                'decision' => $approval->decision->value,
+                'decision_label' => $approval->decision->label(),
+                'note' => $approval->note,
+                'recorded_by' => $approval->recorder->name,
+                'recorded_at' => $approval->created_at?->format('d/m/Y H:i'),
+            ])->values(),
             'uploadLinks' => $canManageUploadLinks ? [
                 'default_days' => (int) config('upload_links.default_days'),
                 'max_days' => (int) config('upload_links.max_days'),
