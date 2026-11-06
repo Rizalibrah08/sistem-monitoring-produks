@@ -33,7 +33,7 @@ class RolePermissionTest extends TestCase
 
     /** @var list<string> */
     private const ALL_PERMISSIONS = [
-        'audit.view', 'bpom.manage', 'clients.manage', 'contracts.manage', 'dashboard.view', 'documents.approve_usage', 'documents.verify_content', 'invoices.view', 'lab_tests.manage', 'document_rules.manage', 'master.manage', 'priorities.view', 'reports.view',
+        'audit.view', 'bpom.manage', 'clients.manage', 'contracts.manage', 'dashboard.view', 'documents.approve_usage', 'documents.verify_content', 'invoices.view', 'lab_tests.manage', 'document_rules.manage', 'master.manage', 'priorities.view', 'reports.view', 'shared_documents.manage',
         'materials.create', 'samples.record', 'ticket_materials.manage', 'ticket_reviews.resolve', 'tickets.create', 'tickets.view', 'upload_links.manage', 'users.manage',
     ];
 
@@ -58,8 +58,8 @@ class RolePermissionTest extends TestCase
             'manager' => ['manager', ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view', 'invoices.view', 'priorities.view', 'reports.view']],
             'marketing' => ['marketing', ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create', 'upload_links.manage', 'samples.record', 'contracts.manage', 'priorities.view']],
             'research' => ['rnd', ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage', 'lab_tests.manage', 'priorities.view']],
-            'quality' => ['qa', ['dashboard.view', 'tickets.view', 'documents.verify_content', 'priorities.view']],
-            'regulatory' => ['ra', ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve', 'documents.approve_usage', 'bpom.manage', 'lab_tests.manage', 'priorities.view']],
+            'quality' => ['qa', ['dashboard.view', 'tickets.view', 'documents.verify_content', 'priorities.view', 'shared_documents.manage']],
+            'regulatory' => ['ra', ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve', 'documents.approve_usage', 'bpom.manage', 'lab_tests.manage', 'priorities.view', 'shared_documents.manage']],
             'finance' => ['finance', ['dashboard.view', 'invoices.view']],
         ];
     }

@@ -8,18 +8,6 @@ return [
             'description' => 'Pengajuan awal calon klien dari nomor layanan.', 'empty_title' => 'Belum ada prospek',
             'columns' => ['Nama', 'Kontak', 'Gambaran produk', 'Tanggal masuk', 'Status'],
         ],
-        'shared-documents' => [
-            'title' => 'Dokumen bersama', 'path' => '/shared-documents', 'route' => 'shared_documents.index', 'icon' => 'file', 'group' => 'Operasional',
-            'roles' => ['qa', 'ra'],
-            'description' => 'Dokumen bersama perusahaan dan riwayat versinya.', 'empty_title' => 'Belum ada dokumen bersama',
-            'columns' => ['Dokumen', 'Cakupan', 'Versi', 'Masa berlaku', 'Status'], 'actions' => ['Unggah dokumen'],
-        ],
-        'ingredients' => [
-            'title' => 'Bahan baku tiket', 'path' => '/ingredients', 'route' => 'ingredients.index', 'icon' => 'flask', 'group' => 'Operasional',
-            'roles' => ['rnd'],
-            'description' => 'Bahan baku produk dan dokumen asal peredarannya.', 'empty_title' => 'Belum ada bahan baku tiket',
-            'columns' => ['Tiket', 'Bahan baku', 'Dokumen terkait', 'Status'],
-        ],
         'inbox' => [
             'title' => 'Kotak masuk WhatsApp', 'label' => 'Kotak masuk', 'path' => '/inbox', 'route' => 'inbox.index', 'icon' => 'message', 'group' => 'Komunikasi',
             'roles' => ['marketing', 'ra', 'manager'],

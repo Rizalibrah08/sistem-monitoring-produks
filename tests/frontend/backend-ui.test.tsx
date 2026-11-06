@@ -23,6 +23,7 @@ import TicketShow from '../../resources/js/Pages/Backend/TicketShow';
 import UploadLink from '../../resources/js/Pages/Client/UploadLink';
 import UploadLinkExpired from '../../resources/js/Pages/Client/UploadLinkExpired';
 import Samples from '../../resources/js/Pages/Backend/Samples';
+import SharedDocuments from '../../resources/js/Pages/Backend/SharedDocuments';
 import Tickets from '../../resources/js/Pages/Backend/Tickets';
 import Verification from '../../resources/js/Pages/Backend/Verification';
 import { BackendLayout } from '../../resources/js/layouts/backend-layout';
@@ -1128,5 +1129,32 @@ describe('checklist sync', () => {
         await user.click(screen.getByRole('button', { name: 'Sinkronkan PRD-2026-0001' }));
 
         expect(requests).toEqual(['/tickets/5/checklist-sync']);
+    });
+});
+
+describe('shared documents', () => {
+    it('lists shared documents with expiry warnings and uploads a company document', async () => {
+        const user = userEvent.setup();
+        const requests: Array<{ url: string; data: Record<string, unknown> }> = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url: String(url), data: data as Record<string, unknown> });
+        });
+        const version = { id: 3, version: 1, number: 'HL-1', issued_at: '01/10/2025', expires_at: '20/11/2026', validation_passed: true, uploaded_by: 'Petugas QA', uploaded_at: '01/10/2025 10:00', download_url: '/document-versions/3/download' };
+        renderPage(
+            <SharedDocuments documents={[{ id: 1, name: 'Sertifikat halal', scope: 'Perusahaan', owner: 'PT Aisha', active_tickets: 2, current: version, expiring: true, versions: [version] }]}
+                filters={{ scope: '' }} companyTypes={[{ value: 9, label: 'Sertifikat halal', requires_issued_at: false, requires_expires_at: true }]} urls={{ store: '/shared-documents' }} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['shared_documents.manage'] } },
+        );
+
+        expect(screen.getByText('Kedaluwarsa ≤ 30 hari')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Unggah dokumen perusahaan' }));
+        await user.selectOptions(screen.getByLabelText('Jenis dokumen'), '9');
+        await user.upload(screen.getByLabelText('Berkas dokumen'), new File(['isi'], 'halal.pdf', { type: 'application/pdf' }));
+        await user.type(screen.getByLabelText('Nomor dokumen'), 'HL-2');
+        await user.type(screen.getByLabelText('Tanggal kedaluwarsa'), '2027-11-20');
+        await user.click(screen.getByRole('button', { name: 'Unggah versi baru' }));
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0].data).toMatchObject({ document_type_id: '9', number: 'HL-2', expires_at: '2027-11-20' });
     });
 });
