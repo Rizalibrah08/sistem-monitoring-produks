@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\DocumentRequirement;
 use App\DocumentScope;
+use App\DocumentSource;
 use App\DocumentStatus;
+use App\Models\Activity;
 use App\Models\Category;
 use App\Models\Client;
+use App\Models\Document;
 use App\Models\DocumentRule;
 use App\Models\DocumentType;
 use App\Models\DosageForm;
@@ -110,6 +113,41 @@ class TicketTest extends TestCase
             [$formula->id, $powerOfAttorney->id, $halal->id],
             [$items['Master formula']->document_type_id, $items['Surat kuasa']->document_type_id, $items['Sertifikat halal']->document_type_id],
         );
+    }
+
+    public function test_shared_client_and_company_documents_that_are_still_valid_are_linked_to_a_new_ticket(): void
+    {
+        $marketing = $this->createStaff('marketing');
+        $client = Client::factory()->create(['marketing_user_id' => $marketing->id]);
+        $type = fn (string $name, DocumentScope $scope, array $attributes = []): DocumentType => DocumentType::factory()->create(['name' => $name, 'requirement' => DocumentRequirement::Required, 'scope' => $scope, 'phase' => StagePhase::PreRegistration, 'max_age_months' => null, ...$attributes]);
+        $sharedDocument = function (DocumentType $type, ?Client $owner, array $version): Document {
+            $document = Document::factory()->create(['document_type_id' => $type->id, 'scope' => $type->scope, 'ticket_id' => null, 'client_id' => $owner?->id]);
+            $current = $document->versions()->create(['version' => 1, 'path' => "documents/{$document->id}/v1.pdf", 'original_name' => 'v1.pdf', 'mime_type' => 'application/pdf', 'size' => 100, 'checksum' => str_repeat('a', 64), 'number' => 'DOC-1', 'source' => DocumentSource::Internal, 'validation_passed' => true, 'validation_errors' => [], ...$version]);
+            $document->update(['current_version_id' => $current->id]);
+
+            return $document;
+        };
+
+        $powerOfAttorney = $sharedDocument($type('Surat kuasa', DocumentScope::Client), $client, []);
+        $sharedDocument($type('Surat pernyataan', DocumentScope::Client), Client::factory()->create(), []);
+        $halal = $sharedDocument($type('Sertifikat halal', DocumentScope::Company, ['requires_expiry_date' => true]), null, ['expires_at' => '2027-06-30']);
+        $sharedDocument($type('Sistem penomoran batch', DocumentScope::Company, ['requires_expiry_date' => true]), null, ['expires_at' => '2026-11-04']);
+        $sharedDocument($type('Profil perusahaan', DocumentScope::Company, ['max_age_months' => 6]), null, ['issued_at' => '2026-04-01']);
+        $sharedDocument($type('Denah produksi', DocumentScope::Company), null, ['validation_passed' => false, 'validation_errors' => ['Gagal.']]);
+
+        $this->actingAs($marketing)->post('/tickets', $this->validTicket(['client_id' => $client->id]))->assertSessionHasNoErrors();
+
+        $ticket = Ticket::query()->sole();
+        $items = $ticket->documents()->with('documentType')->get()->keyBy(fn ($item) => $item->documentType->name);
+        $this->assertSame($powerOfAttorney->id, $items['Surat kuasa']->document_id);
+        $this->assertSame(DocumentStatus::UnderReview, $items['Surat kuasa']->status);
+        $this->assertSame($halal->id, $items['Sertifikat halal']->document_id);
+        foreach (['Surat pernyataan', 'Sistem penomoran batch', 'Profil perusahaan', 'Denah produksi'] as $name) {
+            $this->assertNull($items[$name]->document_id, $name);
+            $this->assertSame(DocumentStatus::Missing, $items[$name]->status, $name);
+        }
+        $entry = Activity::query()->where('event', 'ticket.created')->sole();
+        $this->assertSame(2, $entry->attribute_changes['attributes']['linked_shared_documents']);
     }
 
     public function test_a_ticket_needs_an_existing_client_and_active_dosage_form_and_category(): void
