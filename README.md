@@ -104,7 +104,17 @@ Cara tercepat untuk demo: seluruh layanan berjalan di komputer sendiri dengan `c
    | Finance | `finance@aisha.test` |
    | Manajer | `manajer@aisha.test` |
 
-Data demo berisi master data contoh, dua klien, dan tiga tiket yang checklist-nya tersusun otomatis. Salah satunya, Sirup Temulawak, memperlihatkan dokumen kondisional untuk sediaan cair. Seeder menolak berjalan di luar lingkungan `local` atau `testing`, sehingga tidak dapat terbawa ke server.
+Data demo berisi master data contoh, templat kontrak, dua klien, dan lima tiket yang dijalankan lewat alur aplikasi sampai tahap berbeda, sehingga setiap role langsung memiliki pekerjaan, notifikasi, dan antrean prioritas:
+
+| Tiket | Kondisi |
+|---|---|
+| Kapsul Jahe Merah | Revisi sampel pertama, menunggu keputusan klien (Marketing) |
+| Sirup Temulawak | Sampel disetujui, kontrak dikirim; tautan unggah klien demo dicetak di konsol saat seeding |
+| Serbuk Kunyit Asam | Kontrak aktif, DP lewat jatuh tempo, dokumen menunggu QA/QC dan RA, satu dikembalikan, tahap terlambat SLA |
+| Tablet Sambiloto | Pra-registrasi selesai, LHU sesuai, registrasi diajukan, tambahan data TD1 terbuka (RA) |
+| Kapsul Kunyit Putih | NIE terbit, tiket selesai, DP dan pelunasan lunas (Finance) |
+
+Seeder menolak berjalan di luar lingkungan `local` atau `testing`, sehingga tidak dapat terbawa ke server.
 
 Perintah berguna:
 
