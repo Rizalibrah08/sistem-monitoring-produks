@@ -82,6 +82,12 @@ class Ticket extends Model
         return $this->hasMany(TicketDocument::class);
     }
 
+    /** @return HasMany<TicketReview, $this> */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(TicketReview::class);
+    }
+
     /** @return HasMany<SampleApproval, $this> */
     public function sampleApprovals(): HasMany
     {

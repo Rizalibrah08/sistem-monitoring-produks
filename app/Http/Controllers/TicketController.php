@@ -13,6 +13,7 @@ use App\Models\Material;
 use App\Models\SampleApproval;
 use App\Models\Ticket;
 use App\Models\TicketDocument;
+use App\Models\TicketReview;
 use App\Models\TicketStageLog;
 use App\Models\UploadToken;
 use App\SampleDecision;
@@ -36,6 +37,8 @@ class TicketController extends Controller
         'ticket.materials_updated' => 'Bahan baku diperbarui',
         'upload_link.created' => 'Tautan unggah klien dibuat',
         'sample.recorded' => 'Keputusan sampel dicatat',
+        'ticket.review_flagged' => 'Ditandai perlu ditinjau',
+        'ticket.review_resolved' => 'Ditandai sudah ditinjau',
         'upload_link.revoked' => 'Tautan unggah klien dicabut',
     ];
 
@@ -51,6 +54,7 @@ class TicketController extends Controller
 
         $tickets = Ticket::query()->visibleTo($user)
             ->with(['client', 'dosageForm', 'category', 'currentStage', 'documents'])
+            ->withExists(['reviews as needs_review' => fn (Builder $query) => $query->whereNull('resolved_at')])
             ->when(filled($search), function (Builder $query) use ($search): void {
                 $query->where(function (Builder $query) use ($search): void {
                     $query->where('code', 'like', "%{$search}%")
@@ -73,6 +77,7 @@ class TicketController extends Controller
                 'status' => $ticket->status->value,
                 'status_label' => $ticket->status->label(),
                 'current_stage' => $ticket->currentStage?->name,
+                'needs_review' => (bool) $ticket->needs_review,
                 'progress' => $this->progress($ticket->documents, $ticket->phase === StagePhase::Initial ? StagePhase::PreRegistration : $ticket->phase),
                 'created_at' => $ticket->created_at?->format('d/m/Y'),
                 'show_url' => route('tickets.show', $ticket, absolute: false),
@@ -173,13 +178,21 @@ class TicketController extends Controller
                 ->orderBy('name')->get()
                 ->map(fn (Material $material): array => ['value' => $material->id, 'label' => $material->supplier ? "{$material->name} ({$material->supplier})" : $material->name]) : null,
             'can' => ['manage_materials' => $canManageMaterials, 'create_material' => $user->can('materials.create'), 'manage_upload_links' => $canManageUploadLinks,
+                'resolve_reviews' => $user->can('ticket_reviews.resolve'),
                 'record_sample' => $user->can('samples.record') && $ticket->status === TicketStatus::Active && ! $sampleApproved],
             'urls' => [
                 'materials' => route('tickets.materials.update', $ticket, absolute: false),
                 'create_material' => route('master.materials.store', absolute: false),
                 'upload_links' => route('tickets.upload-links.store', $ticket, absolute: false),
                 'samples' => route('tickets.samples.store', $ticket, absolute: false),
+                'resolve_reviews' => route('tickets.reviews.resolve', $ticket, absolute: false),
             ],
+            'reviews' => $ticket->reviews()->open()->orderBy('id')->get()->map(fn (TicketReview $review): array => [
+                'id' => $review->id,
+                'trigger_label' => $review->trigger->label(),
+                'message' => $review->message,
+                'flagged_at' => $review->created_at?->format('d/m/Y H:i'),
+            ]),
             'samples' => $ticket->sampleApprovals->sortByDesc('revision')->map(fn (SampleApproval $approval): array => [
                 'id' => $approval->id,
                 'revision' => $approval->revision,

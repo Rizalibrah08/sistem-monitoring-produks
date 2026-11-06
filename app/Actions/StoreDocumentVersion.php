@@ -11,6 +11,7 @@ use App\Models\TicketDocument;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DocumentValidator;
+use App\Services\TicketReviewFlagger;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -20,12 +21,13 @@ use Throwable;
 
 class StoreDocumentVersion
 {
-    public function __construct(private DocumentValidator $validator, private AuditLogger $audit) {}
+    public function __construct(private DocumentValidator $validator, private AuditLogger $audit, private TicketReviewFlagger $reviews) {}
 
     /**
      * Simpan unggahan sebagai versi baru dokumen butir checklist (FR-15), jalankan validasi
      * otomatis (FR-71), lalu perbarui status butir: lolos menjadi sedang diverifikasi, gagal
-     * menjadi perlu revisi beserta alasannya (BR-19).
+     * menjadi perlu revisi beserta alasannya (BR-19). Versi baru dokumen bersama menandai
+     * tiket aktif lain yang memakainya sebagai perlu ditinjau (FR-20).
      *
      * @param  array{number: string, issued_at?: ?string, expires_at?: ?string}  $data
      */
@@ -80,6 +82,8 @@ class StoreDocumentVersion
                     'status' => $item->status->value,
                     'validation_errors' => $errors,
                 ], source: $actor === null ? 'client' : 'web', actor: $actor, ticketCode: $item->ticket->code);
+
+                $this->reviews->flagNewVersion($document, $version, $item->ticket_id);
 
                 return $version;
             }, attempts: 3);

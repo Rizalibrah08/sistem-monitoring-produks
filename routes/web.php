@@ -21,6 +21,7 @@ use App\Http\Controllers\StageController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketDocumentVersionController;
 use App\Http\Controllers\TicketMaterialController;
+use App\Http\Controllers\TicketReviewController;
 use App\Http\Controllers\UploadTokenController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceModuleController;
@@ -77,6 +78,7 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
+    Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
     Route::middleware('can:samples.record')->group(function (): void {
         Route::get('/samples', [SampleApprovalController::class, 'index'])->name('samples.index');
         Route::post('/tickets/{ticket}/samples', [SampleApprovalController::class, 'store'])->name('tickets.samples.store');
