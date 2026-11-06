@@ -54,7 +54,7 @@ export default function Tickets({ tickets, filters, phases, statuses, can, creat
                     <div className="overflow-x-auto">
                         <table className="w-full"><thead><tr><th>Kode</th><th>Produk</th><th>Klien</th><th>Fase</th><th>Tahap</th><th>Kelengkapan</th><th>Status</th></tr></thead>
                             <tbody>{tickets.data.map((ticket) => <tr key={ticket.id}>
-                                <td><Link href={ticket.show_url} className="font-semibold">{ticket.code}</Link><div className="text-xs text-gray-500">{ticket.created_at}</div></td>
+                                <td className="whitespace-nowrap"><Link href={ticket.show_url} className="font-semibold">{ticket.code}</Link><div className="text-xs text-gray-500">{ticket.created_at}</div></td>
                                 <td><strong>{ticket.product_name}</strong><div className="text-xs text-gray-500">{ticket.dosage_form} · {ticket.category}</div></td>
                                 <td>{ticket.client}</td>
                                 <td>{ticket.phase_label}</td>

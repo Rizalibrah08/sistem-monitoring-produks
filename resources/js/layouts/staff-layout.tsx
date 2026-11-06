@@ -1,6 +1,6 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import {
-    Activity, ArrowUpRight, Bell, ChevronRight, CircleHelp, ClipboardCheck, Clock3,
+    Activity, Bell, ChevronRight, ClipboardCheck, Clock3,
     FileCheck2, FileClock, FileText, FlaskConical, HandCoins, HeartPulse, Home,
     LayoutDashboard, LogOut, Menu, MessageCircle, Package, Search, Settings2,
     ShieldCheck, Sprout, Ticket, Users, Wallet, type LucideIcon,
@@ -59,17 +59,9 @@ export function StaffLayout({ title, children }: { title: string; children: Reac
                     </div>)}
                 </nav>
                 <div className="sidebar-bottom">
-                    <div className="help-card">
-                        <span className="help-card-icon"><Sprout size={22} /></span>
-                        <strong>Tumbuh lebih teratur.</strong>
-                        <p>Setiap proses, kini dalam satu ruang kerja.</p>
-                        <button disabled title="Panduan penggunaan belum tersedia">Panduan penggunaan<ArrowUpRight size={14} /></button>
-                        <Sprout className="help-card-decor" size={100} strokeWidth={0.8} />
-                    </div>
-                    <button className="sidebar-help" disabled title="Pusat bantuan belum tersedia"><CircleHelp size={17} />Bantuan & panduan<ArrowUpRight size={14} /></button>
                     <div className="sidebar-user">
                         <Avatar initials={initials} />
-                        <div className="min-w-0"><strong className="break-words">{user.name}</strong><small>{user.role_label}</small></div>
+                        <div className="min-w-0"><strong className="truncate" title={user.name}>{user.name}</strong><small className="truncate">{user.role_label}</small></div>
                         <Link href={routes.logout} method="post" as="button" aria-label="Keluar" className="icon-button"><LogOut size={17} /></Link>
                     </div>
                 </div>

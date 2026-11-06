@@ -79,7 +79,7 @@ export function LinkButton({
 export function Badge({ children, tone, dot = true }: { children: ReactNode; tone?: string; dot?: boolean }) {
     const value = typeof children === 'string' ? children.toLowerCase() : '';
     const color =
-        tone ??
+        (tone === 'red' ? 'rose' : tone) ??
         (/terlambat|revisi|gagal|ditolak|lewat/.test(value)
             ? 'rose'
             : /menunggu|ditinjau|dikirim|ditandatangani|terbit|kondisional/.test(value)
