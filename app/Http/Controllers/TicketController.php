@@ -13,6 +13,7 @@ use App\Models\Material;
 use App\Models\Ticket;
 use App\Models\TicketDocument;
 use App\Models\TicketStageLog;
+use App\Models\UploadToken;
 use App\StaffRole;
 use App\StagePhase;
 use App\TicketStatus;
@@ -31,6 +32,8 @@ class TicketController extends Controller
         'ticket.created' => 'Tiket dibuat',
         'document.uploaded' => 'Dokumen diunggah',
         'ticket.materials_updated' => 'Bahan baku diperbarui',
+        'upload_link.created' => 'Tautan unggah klien dibuat',
+        'upload_link.revoked' => 'Tautan unggah klien dicabut',
     ];
 
     public function index(Request $request): Response
@@ -104,6 +107,7 @@ class TicketController extends Controller
         $user = $request->user();
         abort_unless($ticket->isVisibleTo($user), 403);
         $canManageMaterials = $user->can('ticket_materials.manage');
+        $canManageUploadLinks = $user->can('upload_links.manage');
 
         return Inertia::render('Backend/TicketShow', [
             'ticket' => [
@@ -164,8 +168,25 @@ class TicketController extends Controller
                 ->where('is_active', true)->orWhereIn('id', $ticket->materials->modelKeys())
                 ->orderBy('name')->get()
                 ->map(fn (Material $material): array => ['value' => $material->id, 'label' => $material->supplier ? "{$material->name} ({$material->supplier})" : $material->name]) : null,
-            'can' => ['manage_materials' => $canManageMaterials, 'create_material' => $user->can('materials.create')],
-            'urls' => ['materials' => route('tickets.materials.update', $ticket, absolute: false), 'create_material' => route('master.materials.store', absolute: false)],
+            'can' => ['manage_materials' => $canManageMaterials, 'create_material' => $user->can('materials.create'), 'manage_upload_links' => $canManageUploadLinks],
+            'urls' => [
+                'materials' => route('tickets.materials.update', $ticket, absolute: false),
+                'create_material' => route('master.materials.store', absolute: false),
+                'upload_links' => route('tickets.upload-links.store', $ticket, absolute: false),
+            ],
+            'uploadLinks' => $canManageUploadLinks ? [
+                'default_days' => (int) config('upload_links.default_days'),
+                'max_days' => (int) config('upload_links.max_days'),
+                'active' => $ticket->uploadTokens()->usable()->with('creator')->orderBy('phase')->get()
+                    ->map(fn (UploadToken $link): array => [
+                        'id' => $link->id,
+                        'phase_label' => $link->phase->label(),
+                        'expires_at' => $link->expires_at->format('d/m/Y H:i'),
+                        'created_by' => $link->creator->name,
+                        'last_used_at' => $link->last_used_at?->format('d/m/Y H:i'),
+                        'revoke_url' => route('tickets.upload-links.destroy', [$ticket, $link], absolute: false),
+                    ]),
+            ] : null,
             'stages' => $ticket->stageLogs->sortBy('started_at')->map(fn (TicketStageLog $log): array => [
                 'name' => $log->stage->name,
                 'started_at' => $log->started_at->format('d/m/Y H:i'),

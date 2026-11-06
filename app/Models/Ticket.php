@@ -82,6 +82,12 @@ class Ticket extends Model
         return $this->hasMany(TicketDocument::class);
     }
 
+    /** @return HasMany<UploadToken, $this> */
+    public function uploadTokens(): HasMany
+    {
+        return $this->hasMany(UploadToken::class);
+    }
+
     /**
      * Bahan baku produk yang dipilih R&D dari master (FR-14).
      *

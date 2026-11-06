@@ -10,6 +10,8 @@ import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
 import Templates from '../../resources/js/Pages/Backend/Templates';
 import TicketShow from '../../resources/js/Pages/Backend/TicketShow';
+import UploadLink from '../../resources/js/Pages/Client/UploadLink';
+import UploadLinkExpired from '../../resources/js/Pages/Client/UploadLinkExpired';
 import Tickets from '../../resources/js/Pages/Backend/Tickets';
 import { BackendLayout } from '../../resources/js/layouts/backend-layout';
 
@@ -449,7 +451,8 @@ const ticketListProps = {
     urls: { store: '/tickets', clients: '/clients' },
 };
 const ticketRoutes = { routes: { tickets: '/tickets' } };
-const noMaterials = { materials: [], materialOptions: null, can: { manage_materials: false, create_material: false }, urls: { materials: '/tickets/5/materials', create_material: '/master/materials' } };
+const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links' };
+const noMaterials = { materials: [], materialOptions: null, can: { manage_materials: false, create_material: false, manage_upload_links: false }, urls: ticketUrls, uploadLinks: null };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
 type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
@@ -583,8 +586,9 @@ describe('ticket documents', () => {
                 history={[]}
                 materials={[{ id: 1, name: 'Jahe merah', supplier: 'CV Rempah' }]}
                 materialOptions={[{ value: 1, label: 'Jahe merah (CV Rempah)' }, { value: 2, label: 'Kunyit' }]}
-                can={{ manage_materials: true, create_material: true }}
-                urls={{ materials: '/tickets/5/materials', create_material: '/master/materials' }}
+                can={{ manage_materials: true, create_material: true, manage_upload_links: false }}
+                urls={ticketUrls}
+                uploadLinks={null}
             />,
             { ...ticketRoutes, auth: { user: { ...staff, role: 'rnd', role_label: 'R&D' }, permissions: ['tickets.view', 'ticket_materials.manage', 'materials.create'] } },
         );
@@ -598,5 +602,83 @@ describe('ticket documents', () => {
         await user.click(screen.getByRole('button', { name: 'Simpan 2 bahan' }));
 
         expect(requests).toEqual([{ url: '/tickets/5/materials', data: { material_ids: [1, 2] } }]);
+    });
+});
+
+describe('client upload links', () => {
+    it('lets marketing create a link for a phase, shows the new link once, and revokes an active link', async () => {
+        const user = userEvent.setup();
+        const posts: unknown[] = [];
+        const deletes: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            posts.push({ url, data });
+        });
+        vi.spyOn(router, 'delete').mockImplementation((url) => {
+            deletes.push(url);
+        });
+        renderPage(
+            <TicketShow
+                ticket={ticketDetail}
+                checklist={[]}
+                stages={[]}
+                history={[]}
+                {...noMaterials}
+                can={{ manage_materials: false, create_material: false, manage_upload_links: true }}
+                uploadLinks={{ default_days: 14, max_days: 60, active: [{ id: 3, phase_label: 'Pra-registrasi', expires_at: '19/11/2026 10:00', created_by: 'Rizal Marketing', last_used_at: null, revoke_url: '/tickets/5/upload-links/3' }] }}
+            />,
+            { ...ticketRoutes, flash: { status: null, upload_link: 'http://localhost/unggah/abc' }, auth: { user: marketingUser, permissions: ['tickets.view', 'upload_links.manage'] } },
+        );
+
+        expect(screen.getByLabelText('Tautan unggah baru')).toHaveTextContent('http://localhost/unggah/abc');
+        expect(screen.getByText(/belum dipakai/)).toBeInTheDocument();
+
+        await user.selectOptions(screen.getByLabelText('Fase'), 'registrasi');
+        await user.clear(screen.getByLabelText('Berlaku (hari)'));
+        await user.type(screen.getByLabelText('Berlaku (hari)'), '7');
+        await user.click(screen.getByRole('button', { name: 'Buat tautan' }));
+        await user.click(screen.getByRole('button', { name: 'Cabut tautan Pra-registrasi' }));
+
+        expect(posts).toEqual([{ url: '/tickets/5/upload-links', data: { phase: 'registrasi', days: '7' } }]);
+        expect(deletes).toEqual(['/tickets/5/upload-links/3']);
+    });
+
+    it('shows the client only their documents and uploads a new version without login', async () => {
+        const user = userEvent.setup();
+        const requests: Array<{ url: string; data: Record<string, unknown> }> = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url: String(url), data: data as Record<string, unknown> });
+        });
+        renderPage(
+            <UploadLink
+                ticket={{ code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', phase_label: 'Pra-registrasi', is_active: true }}
+                expires_at="19/11/2026 10:00"
+                progress={50}
+                documents={[
+                    { id: 4, name: 'Surat kuasa', status: 'disetujui', status_label: 'Disetujui', revision_reason: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: '/unggah/abc/dokumen/4', current_version: { version: 1, original_name: 'kuasa.pdf', uploaded_at: '05/11/2026 10:00' } },
+                    { id: 5, name: 'Sertifikat merek', status: 'perlu_revisi', status_label: 'Perlu revisi', revision_reason: 'Dokumen sudah kedaluwarsa pada 01/10/2026.', requires_issued_at: false, requires_expires_at: true, can_upload: true, upload_url: '/unggah/abc/dokumen/5', current_version: null },
+                ]}
+            />,
+        );
+
+        expect(screen.getByRole('heading', { name: 'Halo, Nadia.' })).toBeInTheDocument();
+        expect(screen.getByText('Dokumen sudah kedaluwarsa pada 01/10/2026.')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'Unggah Surat kuasa' })).not.toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Unggah Sertifikat merek' }));
+        await user.upload(screen.getByLabelText('Berkas dokumen'), new File(['isi'], 'merek.pdf', { type: 'application/pdf' }));
+        await user.type(screen.getByLabelText('Nomor dokumen'), 'IDM-01');
+        await user.type(screen.getByLabelText('Tanggal kedaluwarsa'), '2030-01-01');
+        await user.click(screen.getByRole('button', { name: 'Kirim dokumen' }));
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0].url).toBe('/unggah/abc/dokumen/5');
+        expect(requests[0].data).toMatchObject({ number: 'IDM-01', expires_at: '2030-01-01' });
+    });
+
+    it('explains an expired link without showing any ticket data', () => {
+        renderPage(<UploadLinkExpired />);
+
+        expect(screen.getByRole('heading', { name: 'Tautan tidak berlaku' })).toBeInTheDocument();
+        expect(screen.queryByText(/PRD-/)).not.toBeInTheDocument();
     });
 });

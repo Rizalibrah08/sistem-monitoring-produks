@@ -15,7 +15,7 @@ export interface BackendSharedProps {
     auth: { user: StaffIdentity | null; permissions: string[] };
     navigation: { id?: string; label: string; href: string; icon?: string; group?: string; available?: boolean }[];
     routes: Record<string, string>;
-    flash: { status: string | null };
+    flash: { status: string | null; upload_link?: string | null };
     workspace?: { search_available: boolean; whatsapp_connected: boolean; notifications_available: boolean };
 }
 

@@ -1,8 +1,8 @@
-import { Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Download, FileText, FlaskConical, Plus, Upload } from 'lucide-react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { ArrowLeft, Copy, Download, FileText, FlaskConical, Link2, Plus, Upload } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
-import { Badge, Button, EmptyState, Field, InfoBox, Modal, Panel, Progress } from '../../components/ui';
+import { Badge, Button, EmptyState, Field, InfoBox, Modal, Panel, Progress, Select } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
 
 type TicketDetail = {
@@ -45,12 +45,14 @@ type StageEntry = { name: string; started_at: string; due_at: string | null; fin
 type HistoryEntry = { id: number; event: string; label: string; actor: string; created_at: string | null };
 type TicketMaterial = { id: number; name: string; supplier: string | null };
 type Option = { value: number; label: string };
-type MaterialAccess = { manage_materials: boolean; create_material: boolean };
-type MaterialUrls = { materials: string; create_material: string };
+type MaterialAccess = { manage_materials: boolean; create_material: boolean; manage_upload_links: boolean };
+type MaterialUrls = { materials: string; create_material: string; upload_links: string };
+type UploadLink = { id: number; phase_label: string; expires_at: string; created_by: string; last_used_at: string | null; revoke_url: string };
+type UploadLinks = { default_days: number; max_days: number; active: UploadLink[] };
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -59,6 +61,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     materialOptions: Option[] | null;
     can: MaterialAccess;
     urls: MaterialUrls;
+    uploadLinks: UploadLinks | null;
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -92,6 +95,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                     </ol>
                 </Panel>
             </div>
+            {uploadLinks && <div className="mt-5"><UploadLinkPanel links={uploadLinks} storeUrl={urls.upload_links} /></div>}
             <div className="mt-5">
                 <Panel title="Bahan baku" description="Dokumen asal peredaran bahan yang masih berlaku langsung tertaut; bahan tanpa dokumen muncul sebagai butir checklist." action={can.manage_materials && materialOptions ? <Button variant="secondary" icon={FlaskConical} onClick={() => setChoosingMaterials(true)}>Atur bahan baku</Button> : undefined}>
                     {materials.length ? (
@@ -206,5 +210,52 @@ function MaterialPicker({ selected, options, canCreate, urls, onClose }: { selec
                 <div className="form-footer"><Button type="submit" variant="secondary" icon={Plus} disabled={newMaterial.processing}>{newMaterial.processing ? 'Menambahkan...' : 'Tambah ke master'}</Button></div>
             </form>}
         </Modal>
+    );
+}
+
+function UploadLinkPanel({ links, storeUrl }: { links: UploadLinks; storeUrl: string }) {
+    const { flash } = usePage<BackendSharedProps>().props;
+    const form = useForm({ phase: 'pra_registrasi', days: String(links.default_days) });
+    const [copied, setCopied] = useState(false);
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setCopied(false);
+        form.post(storeUrl, { preserveScroll: true });
+    }
+
+    async function copy(url: string) {
+        await navigator.clipboard?.writeText(url);
+        setCopied(true);
+    }
+
+    return (
+        <Panel title="Tautan unggah klien" description="Klien membuka tautan tanpa login dan hanya melihat dokumen bagiannya pada fase yang dipilih. Membuat tautan baru mencabut tautan lama di fase yang sama.">
+            <div className="panel-body space-y-4">
+                {flash.upload_link && <InfoBox>
+                    <p className="mb-2">Salin tautan ini sekarang dan kirim ke klien. Tautan tidak dapat ditampilkan lagi.</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <code className="break-all text-xs" aria-label="Tautan unggah baru">{flash.upload_link}</code>
+                        <Button variant="secondary" icon={Copy} onClick={() => copy(flash.upload_link!)}>{copied ? 'Tersalin' : 'Salin'}</Button>
+                    </div>
+                </InfoBox>}
+                <form onSubmit={submit} className="flex flex-wrap items-end gap-3">
+                    <Field label="Fase" error={form.errors.phase}>
+                        <Select value={form.data.phase} onChange={(event) => form.setData('phase', event.target.value)}>
+                            <option value="pra_registrasi">Pra-registrasi</option>
+                            <option value="registrasi">Registrasi</option>
+                        </Select>
+                    </Field>
+                    <Field label="Berlaku (hari)" error={form.errors.days}><input type="number" min={1} max={links.max_days} required value={form.data.days} onChange={(event) => form.setData('days', event.target.value)} /></Field>
+                    <Button type="submit" icon={Link2} disabled={form.processing}>{form.processing ? 'Membuat...' : 'Buat tautan'}</Button>
+                </form>
+                {links.active.length ? <ul className="space-y-2 text-sm">
+                    {links.active.map((link) => <li key={link.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <span><strong>{link.phase_label}</strong> <span className="text-gray-500">· berlaku s.d. {link.expires_at} · dibuat {link.created_by}{link.last_used_at ? ` · terakhir dipakai ${link.last_used_at}` : ' · belum dipakai'}</span></span>
+                        <Button variant="ghost" aria-label={`Cabut tautan ${link.phase_label}`} onClick={() => router.delete(link.revoke_url, { preserveScroll: true })}>Cabut</Button>
+                    </li>)}
+                </ul> : <p className="text-sm text-gray-500">Belum ada tautan aktif.</p>}
+            </div>
+        </Panel>
     );
 }
