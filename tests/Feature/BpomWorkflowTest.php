@@ -80,9 +80,10 @@ class BpomWorkflowTest extends TestCase
         $this->actingAs($this->regulatory)->post($this->submitUrl(), $this->submission())->assertSessionHasNoErrors();
         $submission = BpomSubmission::query()->sole();
 
-        $this->get("/tickets/{$this->ticket->id}")->assertInertia(fn (Assert $page) => $page->where('bpom.registration_blockers', ['Hasil pra-registrasi belum dicatat dan diunggah.']));
+        $this->get("/tickets/{$this->ticket->id}")->assertInertia(fn (Assert $page) => $page->where('bpom.registration_blockers', ['Hasil pra-registrasi belum dicatat dan diunggah.', 'LHU uji laboratorium yang sesuai spesifikasi belum diunggah.']));
         $this->from("/tickets/{$this->ticket->id}")->post("/tickets/{$this->ticket->id}/registration")
-            ->assertSessionHasErrors(['bpom' => 'Fase registrasi belum dapat dibuka: Hasil pra-registrasi belum dicatat dan diunggah.']);
+            ->assertSessionHasErrors(['bpom' => 'Fase registrasi belum dapat dibuka: Hasil pra-registrasi belum dicatat dan diunggah. LHU uji laboratorium yang sesuai spesifikasi belum diunggah.']);
+        $this->conformingLabTest();
 
         $this->post("/bpom-submissions/{$submission->id}/result", ['result_on' => '2026-11-05', 'file' => UploadedFile::fake()->create('hasil.pdf', 100, 'application/pdf')])
             ->assertSessionHas('status', 'Hasil pra-registrasi tercatat. Registrasi harus diajukan paling lambat 18/12/2026.');
@@ -133,6 +134,7 @@ class BpomWorkflowTest extends TestCase
         $this->actingAs($this->regulatory)->post($this->submitUrl(), $this->submission())->assertSessionHasNoErrors();
         $submission = BpomSubmission::query()->sole();
         $this->post("/bpom-submissions/{$submission->id}/result", ['result_on' => '2026-11-05', 'file' => UploadedFile::fake()->create('hasil.pdf', 100, 'application/pdf')]);
+        $this->conformingLabTest();
         $this->post("/tickets/{$this->ticket->id}/registration")->assertSessionHasNoErrors();
 
         $this->travelTo('2026-12-17 10:00:00');
@@ -180,6 +182,11 @@ class BpomWorkflowTest extends TestCase
             'version' => $version, 'path' => "documents/v{$version}.pdf", 'original_name' => "v{$version}.pdf", 'mime_type' => 'application/pdf', 'size' => 100,
             'checksum' => str_repeat('a', 64), 'number' => "DOC-{$version}", 'source' => 'internal', 'validation_passed' => true, 'validation_errors' => [],
         ];
+    }
+
+    private function conformingLabTest(): void
+    {
+        $this->ticket->labTests()->create(['attempt' => 1, 'laboratory' => 'Lab Uji', 'sent_on' => '2026-10-20', 'estimated_on' => '2026-11-03', 'result_on' => '2026-11-03', 'conforms' => true, 'recorded_by' => $this->regulatory->id]);
     }
 
     private function submitUrl(): string

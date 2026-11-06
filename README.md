@@ -4,7 +4,7 @@ Sistem Monitoring Pendaftaran Produk untuk PT Aisha Zahra Herbalaboratories: tik
 
 Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan MySQL 8.4.
 
-> **Status (6 November 2026):** Inkremen 0–3 selesai. Aplikasi belum siap untuk data produksi.
+> **Status (6 November 2026):** Inkremen 0–4 selesai. Aplikasi belum siap untuk data produksi.
 
 ## Progres per inkremen
 
@@ -14,7 +14,7 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 | 1 | Login dan hak akses, master data, log audit, template Word | Selesai |
 | 2 | Tiket, dokumen, validasi | Selesai; pencocokan nama produk pada PDF menunggu persetujuan dependensi, notifikasi ke RA menunggu Inkremen 5 |
 | 3 | Kontrak (MoU), tagihan, pembayaran, Finance | Selesai; pembayaran lewat Midtrans Snap, pengingat jatuh tempo via WhatsApp menunggu Inkremen 5 |
-| 4 | Verifikasi, gerbang fase, BPOM, uji laboratorium, tambahan data, NIE | Belum |
+| 4 | Verifikasi, gerbang fase, BPOM, uji laboratorium, tambahan data, NIE | Selesai; pengingat tenggat BPOM dan notifikasi ke PIC/klien menunggu Inkremen 5 |
 | 5 | SLA hari kerja, eskalasi, WhatsApp (notifikasi, chatbot, inbox) | Belum; butuh nomor dan gateway WhatsApp |
 | 6 | Antrean prioritas AHP-TOPSIS, dasbor, laporan durasi | Belum; bobot AHP sudah tersedia di master data |
 | 7 | Pelengkap: ekspor log, lampiran chat, fitur *Could* | Belum |
@@ -52,6 +52,13 @@ Dibangun dengan Laravel 13 (PHP 8.5), Inertia 3, React 19, Tailwind CSS 4, dan M
 - Klien mengunduh dan mengunggah kontrak bertanda tangan lewat tautan; konfirmasi Marketing mengaktifkan kontrak, membuka fase pra-registrasi, dan menerbitkan tagihan DP.
 - Pembayaran tagihan lewat Midtrans Snap dari halaman tautan klien; notifikasi Midtrans yang terverifikasi melunasi tagihan otomatis.
 - Daftar tagihan dan laporan piutang per klien dengan ekspor CSV untuk Finance dan Manajer.
+
+**Verifikasi dan BPOM**
+- Verifikasi dua tingkat: QA/QC memeriksa isi dokumen mutu, RA menyetujui atau mengembalikan pemakaiannya; pengembalian membuka tahap perbaikan dokumen.
+- Pengajuan BPOM per fase dengan PNBP dan penguncian versi dokumen yang diajukan; hasil pra-registrasi menetapkan tenggat registrasi 30 hari kerja dan pra-registrasi yang lewat tenggat otomatis hangus.
+- Tambahan data BPOM TD1–TD3 bertenggat 60 hari kerja, dengan peringatan risiko penolakan pada TD3.
+- Uji laboratorium eksternal sejajar dengan pra-registrasi, termasuk analisis ulang; fase registrasi terbuka setelah hasil pra-registrasi dan LHU yang sesuai tercatat.
+- Desain kemasan dan input NIE yang menutup tiket serta menerbitkan tagihan pelunasan.
 
 Modul yang belum dibangun tetap tampil di menu sesuai role dengan keterangan "belum tersedia", tanpa data demo.
 

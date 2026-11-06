@@ -41,6 +41,7 @@ class WorkspaceNavigation
 
         if ($user->can('bpom.manage')) {
             $items[] = ['id' => 'bpom', 'label' => 'Pengajuan BPOM', 'href' => route('bpom.index', absolute: false), 'icon' => 'package', 'group' => 'Operasional', 'available' => true];
+            $items[] = ['id' => 'nie', 'label' => 'Input NIE', 'href' => route('nie.index', absolute: false), 'icon' => 'shield', 'group' => 'Operasional', 'available' => true];
         }
 
         if ($user->can('documents.verify_content')) {

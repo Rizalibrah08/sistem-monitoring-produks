@@ -12,6 +12,7 @@ import Receivables from '../../resources/js/Pages/Backend/Receivables';
 import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
+import Nie from '../../resources/js/Pages/Backend/Nie';
 import Templates from '../../resources/js/Pages/Backend/Templates';
 import TicketShow from '../../resources/js/Pages/Backend/TicketShow';
 import UploadLink from '../../resources/js/Pages/Client/UploadLink';
@@ -457,10 +458,11 @@ const ticketListProps = {
     urls: { store: '/tickets', clients: '/clients' },
 };
 const ticketRoutes = { routes: { tickets: '/tickets' } };
-const noBpom = { can_manage: false, can_submit: false, can_reject: false, registration_blockers: null, submissions: [], urls: { submit: '/tickets/5/bpom-submissions', open_registration: '/tickets/5/registration', reject: '/tickets/5/rejection' } };
+const noBpom = { can_manage: false, can_submit: false, can_reject: false, can_complete: false, registration_blockers: null, packaging_requested_on: null, packaging_uploaded_on: null, submissions: [], urls: { submit: '/tickets/5/bpom-submissions', open_registration: '/tickets/5/registration', reject: '/tickets/5/rejection', packaging: '/tickets/5/packaging', nie: '/tickets/5/nie' } };
+const noLabTests = { can_manage: false, store_url: '/tickets/5/lab-tests', tests: [] };
 const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links', samples: '/tickets/5/samples', resolve_reviews: '/tickets/5/reviews/resolve', contract_store: '/contracts' };
 const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false, resolve_reviews: false, manage_contract: false, create_contract: false };
-const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null, invoices: [], bpom: noBpom };
+const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null, invoices: [], bpom: noBpom, labTests: noLabTests };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
 type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; content_verified: boolean | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
@@ -604,6 +606,7 @@ describe('ticket documents', () => {
                 contractOptions={null}
                 invoices={[]}
                 bpom={noBpom}
+                labTests={noLabTests}
             />,
             { ...ticketRoutes, auth: { user: { ...staff, role: 'rnd', role_label: 'R&D' }, permissions: ['tickets.view', 'ticket_materials.manage', 'materials.create'] } },
         );
@@ -968,5 +971,54 @@ describe('bpom', () => {
         await user.click(screen.getByRole('button', { name: 'Catat pengajuan pra-registrasi' }));
 
         expect(requests).toEqual([{ url: '/tickets/5/bpom-submissions', data: { submitted_on: '2026-11-05', pnbp: '3000000' } }]);
+    });
+});
+
+describe('lab tests and NIE', () => {
+    it('records a re-analysis after a non-conforming lab result', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <TicketShow ticket={ticketDetail} checklist={[]} stages={[]} history={[]} {...noMaterials}
+                labTests={{ can_manage: true, store_url: '/tickets/5/lab-tests', tests: [{ id: 1, attempt: 1, laboratory: 'Lab Uji Nusantara', sent_on: '01/10/2026', estimated_on: '15/10/2026', result_on: '14/10/2026', conforms: false, note: 'Cemaran mikroba melebihi batas.', file_url: '/lab-tests/1/file', result_url: '/lab-tests/1/result' }] }} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['tickets.view', 'lab_tests.manage'] } },
+        );
+
+        expect(screen.getByText('Cemaran mikroba melebihi batas.')).toBeInTheDocument();
+        await user.type(screen.getByLabelText('Laboratorium'), 'Lab Uji Nusantara');
+        await user.type(screen.getByLabelText('Tanggal kirim'), '2026-11-01');
+        await user.type(screen.getByLabelText('Perkiraan selesai'), '2026-11-14');
+        await user.click(screen.getByRole('button', { name: 'Catat analisis ulang' }));
+
+        expect(requests).toEqual([{ url: '/tickets/5/lab-tests', data: { laboratory: 'Lab Uji Nusantara', sent_on: '2026-11-01', estimated_on: '2026-11-14' } }]);
+    });
+
+    it('records the NIE that closes the ticket', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <TicketShow ticket={ticketDetail} checklist={[]} stages={[]} history={[]} {...noMaterials}
+                bpom={{ ...noBpom, can_manage: true, can_complete: true, packaging_requested_on: '01/11/2026', packaging_uploaded_on: '03/11/2026' }} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['tickets.view', 'bpom.manage'] } },
+        );
+
+        await user.type(screen.getByLabelText('Nomor NIE'), 'TR263012345');
+        await user.type(screen.getByLabelText('Tanggal terbit NIE'), '2026-11-05');
+        await user.click(screen.getByRole('button', { name: 'Simpan NIE dan tutup tiket' }));
+
+        expect(requests).toEqual([{ url: '/tickets/5/nie', data: { nie_number: 'TR263012345', nie_issued_on: '2026-11-05' } }]);
+    });
+
+    it('lists tickets awaiting the NIE with their packaging design status', () => {
+        renderPage(<Nie tickets={[{ id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', submitted_on: '01/10/2026', packaging_requested_on: '01/11/2026', packaging_uploaded_on: null, ticket_url: '/tickets/5' }]} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['bpom.manage'] } });
+
+        expect(screen.getByText('Diminta 01/11/2026')).toBeInTheDocument();
     });
 });
