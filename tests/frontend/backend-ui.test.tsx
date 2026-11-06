@@ -7,6 +7,7 @@ import Login from '../../resources/js/Pages/Auth/Login';
 import Clients from '../../resources/js/Pages/Backend/Clients';
 import Contracts from '../../resources/js/Pages/Backend/Contracts';
 import Invoices from '../../resources/js/Pages/Backend/Invoices';
+import Receivables from '../../resources/js/Pages/Backend/Receivables';
 import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
@@ -875,5 +876,23 @@ describe('invoices', () => {
         await user.click(screen.getByRole('button', { name: 'Bayar sekarang' }));
 
         expect(requests).toEqual(['/unggah/abc/tagihan/9/bayar']);
+    });
+});
+
+describe('receivables', () => {
+    it('summarises receivables per client and links the CSV export', () => {
+        renderPage(
+            <Receivables
+                clients={[{ client_id: 1, client: 'Nusantara Herbal', invoices: 2, billed: 30000000, paid: 15000000, outstanding: 15000000, overdue: 15000000, oldest_due: '01/11/2026' }]}
+                totals={{ billed: 30000000, paid: 15000000, outstanding: 15000000, overdue: 15000000 }}
+                filters={{ search: '', from: '', until: '' }}
+                urls={{ export: '/receivables/export' }}
+            />,
+            { ...ticketRoutes, auth: { user: { ...staff, role: 'finance', role_label: 'Finance' }, permissions: ['invoices.view'] } },
+        );
+
+        expect(screen.getByText('Nusantara Herbal')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Ekspor CSV' })).toHaveAttribute('href', '/receivables/export');
+        expect(screen.getByText('01/11/2026')).toBeInTheDocument();
     });
 });

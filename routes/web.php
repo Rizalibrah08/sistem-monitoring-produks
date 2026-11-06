@@ -19,6 +19,7 @@ use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\MaterialController;
 use App\Http\Controllers\MidtransNotificationController;
 use App\Http\Controllers\PreviewController;
+use App\Http\Controllers\ReceivableController;
 use App\Http\Controllers\SampleApprovalController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\TicketController;
@@ -87,7 +88,11 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
     Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
-    Route::get('/invoices', [InvoiceController::class, 'index'])->middleware('can:invoices.view')->name('invoices.index');
+    Route::middleware('can:invoices.view')->group(function (): void {
+        Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
+        Route::get('/receivables', [ReceivableController::class, 'index'])->name('receivables.index');
+        Route::get('/receivables/export', [ReceivableController::class, 'export'])->name('receivables.export');
+    });
     Route::middleware('can:contracts.manage')->group(function (): void {
         Route::get('/contracts', [ContractController::class, 'index'])->name('contracts.index');
         Route::post('/contracts', [ContractController::class, 'store'])->name('contracts.store');
