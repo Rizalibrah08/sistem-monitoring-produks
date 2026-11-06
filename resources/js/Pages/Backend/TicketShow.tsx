@@ -5,6 +5,8 @@ import type { BackendSharedProps } from '../../backend-types';
 import { Badge, Button, EmptyState, Field, InfoBox, Modal, Panel, Progress, Select } from '../../components/ui';
 import { BackendLayout } from '../../layouts/backend-layout';
 import { sampleTones } from './Samples';
+import { contractTones } from './Contracts';
+import { ContractForm, rupiah, type ContractDefaults, type ContractOption } from '../../components/contract-form';
 
 type TicketDetail = {
     id: number;
@@ -46,8 +48,15 @@ type StageEntry = { name: string; started_at: string; due_at: string | null; fin
 type HistoryEntry = { id: number; event: string; label: string; actor: string; created_at: string | null };
 type TicketMaterial = { id: number; name: string; supplier: string | null };
 type Option = { value: number; label: string };
-type MaterialAccess = { manage_materials: boolean; create_material: boolean; manage_upload_links: boolean; record_sample: boolean; resolve_reviews: boolean };
-type MaterialUrls = { materials: string; create_material: string; upload_links: string; samples: string; resolve_reviews: string };
+type MaterialAccess = { manage_materials: boolean; create_material: boolean; manage_upload_links: boolean; record_sample: boolean; resolve_reviews: boolean; manage_contract: boolean; create_contract: boolean };
+type MaterialUrls = { materials: string; create_material: string; upload_links: string; samples: string; resolve_reviews: string; contract_store: string };
+type ContractDetail = {
+    id: number; number: string; status: string; status_label: string; service_value: number; dp_percent: number; payment_due_days: number;
+    document_template_id: number; template: string; dp_amount: number; settlement_amount: number; is_generated: boolean; generation_error: string | null;
+    signed_at: string | null; confirmed_at: string | null; files: Partial<Record<'word' | 'pdf' | 'signed', string>>;
+    urls: { update: string; send: string; signed: string; confirm: string };
+};
+type ContractOptions = { templates: ContractOption[]; defaults: ContractDefaults };
 type ReviewEntry = { id: number; trigger_label: string; message: string; flagged_at: string | null };
 type SampleEntry = { id: number; revision: number; decision: string; decision_label: string; note: string | null; recorded_by: string; recorded_at: string | null };
 type UploadLink = { id: number; phase_label: string; expires_at: string; created_by: string; last_used_at: string | null; revoke_url: string };
@@ -55,7 +64,7 @@ type UploadLinks = { default_days: number; max_days: number; active: UploadLink[
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews }: {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls, uploadLinks, samples, reviews, contract, contractOptions }: {
     ticket: TicketDetail;
     checklist: ChecklistPhase[];
     stages: StageEntry[];
@@ -67,6 +76,8 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
     uploadLinks: UploadLinks | null;
     samples: SampleEntry[];
     reviews: ReviewEntry[];
+    contract: ContractDetail | null;
+    contractOptions: ContractOptions | null;
 }) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
@@ -105,6 +116,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                     </ol>
                 </Panel>
             </div>
+            {(contract || can.create_contract) && <div className="mt-5"><ContractPanel ticketId={ticket.id} contract={contract} options={contractOptions} can={can} storeUrl={urls.contract_store} /></div>}
             <div className="mt-5"><SamplePanel samples={samples} canRecord={can.record_sample} storeUrl={urls.samples} /></div>
             {uploadLinks && <div className="mt-5"><UploadLinkPanel links={uploadLinks} storeUrl={urls.upload_links} /></div>}
             <div className="mt-5">
@@ -296,6 +308,48 @@ function SamplePanel({ samples, canRecord, storeUrl }: { samples: SampleEntry[];
                         <Button icon={Check} disabled={form.processing} onClick={() => record('disetujui')}>Setujui sampel</Button>
                     </div>
                 </div>}
+            </div>
+        </Panel>
+    );
+}
+
+function ContractPanel({ ticketId, contract, options, can, storeUrl }: { ticketId: number; contract: ContractDetail | null; options: ContractOptions | null; can: MaterialAccess; storeUrl: string }) {
+    const [editing, setEditing] = useState(false);
+    const signed = useForm<{ file: File | null }>({ file: null });
+    const action = (url: string) => router.post(url, {}, { preserveScroll: true });
+
+    if (!contract) {
+        return options && <Panel title="Kontrak (MoU)" description="Sampel sudah disetujui; buat kontrak dari templat.">
+            <div className="panel-body"><ContractForm url={storeUrl} templates={options.templates} submitLabel="Buat kontrak" initial={{ ticket_id: ticketId, document_template_id: '', service_value: '', ...options.defaults }} /></div>
+        </Panel>;
+    }
+
+    const manage = can.manage_contract;
+
+    return (
+        <Panel title={`Kontrak ${contract.number}`} description={`Templat ${contract.template}`} action={<Badge tone={contractTones[contract.status]}>{contract.status_label}</Badge>}>
+            <div className="panel-body space-y-3 text-sm">
+                <p>Nilai jasa <strong>{rupiah(contract.service_value)}</strong> · DP {contract.dp_percent}% ({rupiah(contract.dp_amount)}) · pelunasan {100 - contract.dp_percent}% ({rupiah(contract.settlement_amount)}) · jatuh tempo {contract.payment_due_days} hari</p>
+                {!contract.is_generated && <p className="text-gray-500">Berkas kontrak sedang disiapkan. Muat ulang halaman sebentar lagi.</p>}
+                {contract.generation_error && <p className="text-red-700">{contract.generation_error}</p>}
+                <div className="flex flex-wrap gap-2">
+                    {contract.files.pdf && <a className="btn btn-ghost" href={contract.files.pdf}><Download size={16} strokeWidth={1.8} />PDF</a>}
+                    {contract.files.word && <a className="btn btn-ghost" href={contract.files.word}><Download size={16} strokeWidth={1.8} />Word</a>}
+                    {contract.files.signed && <a className="btn btn-ghost" href={contract.files.signed}><Download size={16} strokeWidth={1.8} />Bertanda tangan</a>}
+                </div>
+                {contract.signed_at && <p className="text-gray-500">Berkas bertanda tangan diunggah {contract.signed_at}{contract.confirmed_at ? ` · dikonfirmasi ${contract.confirmed_at}` : ''}</p>}
+                {manage && contract.status === 'draf' && (editing && options
+                    ? <ContractForm url={contract.urls.update} method="put" templates={options.templates} submitLabel="Simpan perubahan" onCancel={() => setEditing(false)} onSuccess={() => setEditing(false)}
+                        initial={{ document_template_id: contract.document_template_id, service_value: contract.service_value, dp_percent: contract.dp_percent, payment_due_days: contract.payment_due_days }} />
+                    : <div className="flex flex-wrap gap-2">
+                        <Button variant="secondary" onClick={() => setEditing(true)}>Ubah kontrak</Button>
+                        <Button disabled={!contract.is_generated} onClick={() => action(contract.urls.send)}>Tandai dikirim</Button>
+                    </div>)}
+                {manage && (contract.status === 'dikirim' || contract.status === 'ditandatangani') && <form className="flex flex-wrap items-end gap-2" onSubmit={(event) => { event.preventDefault(); signed.post(contract.urls.signed, { preserveScroll: true, onSuccess: () => signed.reset() }); }}>
+                    <Field label="Kontrak bertanda tangan (atas nama klien)" error={signed.errors.file}><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => signed.setData('file', event.target.files?.[0] ?? null)} /></Field>
+                    <Button type="submit" variant="secondary" icon={Upload} disabled={signed.processing || !signed.data.file}>Unggah</Button>
+                </form>}
+                {manage && contract.status === 'ditandatangani' && <Button icon={Check} onClick={() => action(contract.urls.confirm)}>Konfirmasi kontrak aktif</Button>}
             </div>
         </Panel>
     );

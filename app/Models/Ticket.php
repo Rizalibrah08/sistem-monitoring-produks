@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /** Satu tiket untuk satu produk yang didaftarkan ke BPOM (BR-01). */
 #[Fillable(['code', 'client_id', 'product_name', 'dosage_form_id', 'category_id', 'phase', 'current_stage_id', 'status', 'created_by'])]
@@ -80,6 +81,12 @@ class Ticket extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(TicketDocument::class);
+    }
+
+    /** @return HasOne<Contract, $this> */
+    public function contract(): HasOne
+    {
+        return $this->hasOne(Contract::class);
     }
 
     /** @return HasMany<TicketReview, $this> */

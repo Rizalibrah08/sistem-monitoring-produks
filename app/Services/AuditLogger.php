@@ -18,7 +18,7 @@ class AuditLogger
      */
     public function record(string $event, ?Model $subject = null, array $before = [], array $after = [], ?string $reason = null, string $source = 'web', ?User $actor = null, ?string $ticketCode = null, array $properties = []): Activity
     {
-        $actor ??= $this->request->user();
+        $actor ??= $source === 'web' ? $this->request->user() : null;
         $pending = activity(strtok($event, '.'))->event($event)
             ->withChanges(['old' => $before, 'attributes' => $after])
             ->withProperties($properties)

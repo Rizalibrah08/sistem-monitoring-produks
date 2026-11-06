@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Actions\StoreDocumentVersion;
+use App\Actions\StoreSignedContract;
+use App\ContractStatus;
 use App\DocumentSource;
 use App\DocumentStatus;
 use App\Http\Requests\ClientDocumentUploadRequest;
+use App\Http\Requests\ClientSignedContractRequest;
+use App\Models\Contract;
 use App\Models\DocumentType;
 use App\Models\TicketDocument;
 use App\Models\UploadToken;
@@ -14,6 +18,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -48,6 +53,15 @@ class ClientUploadController extends Controller
                 'is_active' => $isActive,
             ],
             'expires_at' => $uploadToken->expires_at->format('d/m/Y H:i'),
+            'contract' => ($contract = $ticket->contract) === null || $contract->status === ContractStatus::Draft ? null : [
+                'number' => $contract->number,
+                'status' => $contract->status->value,
+                'status_label' => $contract->status->label(),
+                'signed_at' => $contract->signed_at?->format('d/m/Y H:i'),
+                'can_sign' => $isActive && in_array($contract->status, [ContractStatus::Sent, ContractStatus::Signed], true),
+                'download_url' => route('client-uploads.contract', $token, absolute: false),
+                'upload_url' => route('client-uploads.contract.signed', $token, absolute: false),
+            ],
             'progress' => $items->isEmpty() ? 0 : (int) round($approved / $items->count() * 100),
             'documents' => $items->map(fn (TicketDocument $item): array => [
                 'id' => $item->id,
@@ -88,6 +102,39 @@ class ClientUploadController extends Controller
         return back()->with('status', $version->validation_passed
             ? "{$item->documentType->name} diterima dan sedang diverifikasi tim kami."
             : "{$item->documentType->name} diterima, tetapi perlu diperbaiki: ".implode(' ', $version->validation_errors));
+    }
+
+    /**
+     * Klien mengunduh kontrak yang sudah dikirim untuk ditandatangani (FR-70, FR-74).
+     */
+    public function contract(Request $request, string $token): Response
+    {
+        $contract = $this->sentContract($token);
+        $path = $contract->pdf_path ?? $contract->word_path;
+        abort_if($path === null, 404);
+
+        return $this->private(Storage::disk('local')->download($path, 'Kontrak '.str_replace('/', '-', $contract->number).'.'.pathinfo($path, PATHINFO_EXTENSION)));
+    }
+
+    /**
+     * Klien mengunggah kontrak bertanda tangan lewat tautan (FR-74).
+     */
+    public function signContract(ClientSignedContractRequest $request, string $token, StoreSignedContract $store): RedirectResponse
+    {
+        $contract = $this->sentContract($token);
+        abort_unless($contract->ticket->status === TicketStatus::Active, 404);
+        $store->handle($contract, $request->file('file'), null);
+        $this->usableToken($token)?->update(['last_used_at' => now()]);
+
+        return back()->with('status', 'Kontrak bertanda tangan diterima dan menunggu konfirmasi tim kami.');
+    }
+
+    private function sentContract(string $token): Contract
+    {
+        $contract = $this->usableToken($token)?->ticket->contract;
+        abort_unless($contract !== null && in_array($contract->status, [ContractStatus::Sent, ContractStatus::Signed], true), 404);
+
+        return $contract;
     }
 
     private function usableToken(string $token): ?UploadToken

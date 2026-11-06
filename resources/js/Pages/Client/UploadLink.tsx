@@ -1,5 +1,5 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { FileText, HeartPulse, Leaf, LockKeyhole, MessageCircle, ShieldCheck, Upload } from 'lucide-react';
+import { Download, FileSignature, FileText, HeartPulse, Leaf, LockKeyhole, MessageCircle, ShieldCheck, Upload } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
 import { Badge, Brand, Button, Field, Modal, Progress } from '../../components/ui';
@@ -18,9 +18,11 @@ type ClientDocument = {
     current_version: { version: number; original_name: string; uploaded_at: string | null } | null;
 };
 
+type ClientContract = { number: string; status: string; status_label: string; signed_at: string | null; can_sign: boolean; download_url: string; upload_url: string };
+
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function UploadLink({ ticket, expires_at, progress, documents }: { ticket: ClientTicket; expires_at: string; progress: number; documents: ClientDocument[] }) {
+export default function UploadLink({ ticket, expires_at, progress, documents, contract }: { ticket: ClientTicket; expires_at: string; progress: number; documents: ClientDocument[]; contract: ClientContract | null }) {
     const { flash } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ClientDocument | null>(null);
 
@@ -52,6 +54,7 @@ export default function UploadLink({ ticket, expires_at, progress, documents }: 
                     <Progress value={progress} showLabel={false} />
                 </section>
                 {!ticket.is_active && <p className="info-box info-warning mb-5">Pendaftaran ini sudah tidak aktif, sehingga dokumen tidak dapat diunggah lagi.</p>}
+                {contract && <ContractSection contract={contract} />}
                 <div className="client-section-heading">
                     <span className="client-section-number">01</span>
                     <div>
@@ -117,5 +120,32 @@ function ClientUploader({ document, onClose }: { document: ClientDocument; onClo
                 <div className="form-footer"><Button variant="secondary" onClick={onClose} disabled={form.processing}>Batal</Button><Button type="submit" disabled={form.processing || form.data.file === null}>{form.processing ? 'Mengunggah...' : 'Kirim dokumen'}</Button></div>
             </form>
         </Modal>
+    );
+}
+
+function ContractSection({ contract }: { contract: ClientContract }) {
+    const form = useForm<{ file: File | null }>({ file: null });
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        form.post(contract.upload_url, { preserveScroll: true, onSuccess: () => form.reset() });
+    }
+
+    return (
+        <section className="client-doc-card">
+            <div className="client-doc-title">
+                <span className="file-icon"><FileSignature size={19} /></span>
+                <div>
+                    <h3>Kontrak pendaftaran</h3>
+                    <small>{contract.number}{contract.signed_at ? ` · bertanda tangan diunggah ${contract.signed_at}` : ''}</small>
+                </div>
+                <Badge>{contract.status_label}</Badge>
+            </div>
+            {contract.status !== 'aktif' && <a className="btn btn-secondary" href={contract.download_url}><Download size={16} />Unduh kontrak</a>}
+            {contract.can_sign && <form onSubmit={submit} className="form-stack mt-3">
+                <Field label="Kontrak bertanda tangan" error={form.errors.file} hint="PDF, JPG, atau PNG, maksimal 20 MB."><input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(event) => form.setData('file', event.target.files?.[0] ?? null)} /></Field>
+                <Button type="submit" icon={Upload} disabled={form.processing || !form.data.file}>{form.processing ? 'Mengunggah...' : 'Kirim kontrak bertanda tangan'}</Button>
+            </form>}
+        </section>
     );
 }

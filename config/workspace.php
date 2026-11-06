@@ -20,12 +20,6 @@ return [
             'description' => 'Pengajuan awal calon klien dari nomor layanan.', 'empty_title' => 'Belum ada prospek',
             'columns' => ['Nama', 'Kontak', 'Gambaran produk', 'Tanggal masuk', 'Status'],
         ],
-        'contracts' => [
-            'title' => 'Daftar kontrak', 'label' => 'Kontrak', 'path' => '/contracts', 'route' => 'contracts.index', 'icon' => 'file', 'group' => 'Operasional',
-            'roles' => ['marketing'],
-            'description' => 'Kontrak kerja sama untuk setiap pendaftaran produk.', 'empty_title' => 'Belum ada kontrak',
-            'columns' => ['Nomor kontrak', 'Tiket', 'Klien', 'Nilai jasa', 'Status'], 'actions' => ['Buat kontrak'],
-        ],
         'verification' => [
             'title' => 'Verifikasi dokumen', 'path' => '/verification', 'route' => 'verification.index', 'icon' => 'file-check', 'group' => 'Operasional',
             'roles' => ['ra'],
