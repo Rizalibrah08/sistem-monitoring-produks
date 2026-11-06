@@ -34,7 +34,7 @@ class RolePermissionTest extends TestCase
     /** @var list<string> */
     private const ALL_PERMISSIONS = [
         'audit.view', 'clients.manage', 'dashboard.view', 'document_rules.manage', 'master.manage',
-        'materials.create', 'tickets.create', 'tickets.view', 'users.manage',
+        'materials.create', 'ticket_materials.manage', 'tickets.create', 'tickets.view', 'users.manage',
     ];
 
     /** @param list<string> $granted */
@@ -57,7 +57,7 @@ class RolePermissionTest extends TestCase
             'admin' => ['admin', ['dashboard.view', 'users.manage', 'audit.view', 'master.manage', 'materials.create', 'document_rules.manage']],
             'manager' => ['manager', ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view']],
             'marketing' => ['marketing', ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create']],
-            'research' => ['rnd', ['dashboard.view', 'materials.create', 'tickets.view']],
+            'research' => ['rnd', ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage']],
             'quality' => ['qa', ['dashboard.view', 'tickets.view']],
             'regulatory' => ['ra', ['dashboard.view', 'document_rules.manage', 'tickets.view']],
             'finance' => ['finance', ['dashboard.view']],

@@ -9,6 +9,7 @@ use App\Models\Activity;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\DosageForm;
+use App\Models\Material;
 use App\Models\Ticket;
 use App\Models\TicketDocument;
 use App\Models\TicketStageLog;
@@ -29,6 +30,7 @@ class TicketController extends Controller
     private const EVENT_LABELS = [
         'ticket.created' => 'Tiket dibuat',
         'document.uploaded' => 'Dokumen diunggah',
+        'ticket.materials_updated' => 'Bahan baku diperbarui',
     ];
 
     public function index(Request $request): Response
@@ -98,9 +100,10 @@ class TicketController extends Controller
 
     public function show(Request $request, Ticket $ticket): Response
     {
-        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.document.currentVersion', 'stageLogs.stage']);
+        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials']);
         $user = $request->user();
         abort_unless($ticket->isVisibleTo($user), 403);
+        $canManageMaterials = $user->can('ticket_materials.manage');
 
         return Inertia::render('Backend/TicketShow', [
             'ticket' => [
@@ -126,10 +129,14 @@ class TicketController extends Controller
                 'progress' => $this->progress($ticket->documents, $phase),
                 'documents' => $ticket->documents
                     ->filter(fn (TicketDocument $document): bool => $document->belongsToPhase($phase))
-                    ->sortBy(fn (TicketDocument $document): string => $document->documentType->name)
+                    ->sortBy([
+                        fn (TicketDocument $a, TicketDocument $b): int => $a->documentType->name <=> $b->documentType->name,
+                        fn (TicketDocument $a, TicketDocument $b): int => ($a->material?->name ?? '') <=> ($b->material?->name ?? ''),
+                    ])
                     ->map(fn (TicketDocument $document): array => [
                         'id' => $document->id,
                         'name' => $document->documentType->name,
+                        'material' => $document->material?->name,
                         'scope' => $document->documentType->scope->label(),
                         'requirement' => $document->requirement->label(),
                         'pic' => $document->documentType::roleLabel($document->documentType->pic_role),
@@ -152,6 +159,13 @@ class TicketController extends Controller
                         ],
                     ])->values(),
             ]),
+            'materials' => $ticket->materials->sortBy('name')->map(fn (Material $material): array => ['id' => $material->id, 'name' => $material->name, 'supplier' => $material->supplier])->values(),
+            'materialOptions' => $canManageMaterials ? Material::query()
+                ->where('is_active', true)->orWhereIn('id', $ticket->materials->modelKeys())
+                ->orderBy('name')->get()
+                ->map(fn (Material $material): array => ['value' => $material->id, 'label' => $material->supplier ? "{$material->name} ({$material->supplier})" : $material->name]) : null,
+            'can' => ['manage_materials' => $canManageMaterials, 'create_material' => $user->can('materials.create')],
+            'urls' => ['materials' => route('tickets.materials.update', $ticket, absolute: false), 'create_material' => route('master.materials.store', absolute: false)],
             'stages' => $ticket->stageLogs->sortBy('started_at')->map(fn (TicketStageLog $log): array => [
                 'name' => $log->stage->name,
                 'started_at' => $log->started_at->format('d/m/Y H:i'),

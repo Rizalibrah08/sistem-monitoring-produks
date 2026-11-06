@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Satu butir checklist dokumen pada tiket (FR-11). Fase dan sifat disalin dari jenis
  * dokumen saat checklist disusun, sehingga perubahan master tidak mengubah tiket lama (BR-07).
  */
-#[Fillable(['ticket_id', 'document_type_id', 'phase', 'requirement', 'document_rule_id', 'document_id', 'status', 'revision_reason'])]
+#[Fillable(['ticket_id', 'document_type_id', 'material_id', 'phase', 'requirement', 'document_rule_id', 'document_id', 'status', 'revision_reason'])]
 class TicketDocument extends Model
 {
     /**
@@ -27,6 +27,7 @@ class TicketDocument extends Model
         return [
             'ticket_id' => 'integer',
             'document_type_id' => 'integer',
+            'material_id' => 'integer',
             'document_rule_id' => 'integer',
             'document_id' => 'integer',
             'phase' => StagePhase::class,
@@ -45,6 +46,12 @@ class TicketDocument extends Model
     public function documentType(): BelongsTo
     {
         return $this->belongsTo(DocumentType::class);
+    }
+
+    /** @return BelongsTo<Material, $this> */
+    public function material(): BelongsTo
+    {
+        return $this->belongsTo(Material::class);
     }
 
     /** @return BelongsTo<DocumentRule, $this> */

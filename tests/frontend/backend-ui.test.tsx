@@ -449,10 +449,11 @@ const ticketListProps = {
     urls: { store: '/tickets', clients: '/clients' },
 };
 const ticketRoutes = { routes: { tickets: '/tickets' } };
+const noMaterials = { materials: [], materialOptions: null, can: { manage_materials: false, create_material: false }, urls: { materials: '/tickets/5/materials', create_material: '/master/materials' } };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
-type ChecklistDocumentFixture = { id: number; name: string; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
+type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
-    return { scope: 'Tiket', requirement: 'Wajib', pic: 'R&D', both_phases: false, status: 'belum_ada', status_label: 'Belum ada', revision_reason: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: `/tickets/5/documents/${overrides.id}/versions`, current_version: null, ...overrides };
+    return { material: null, scope: 'Tiket', requirement: 'Wajib', pic: 'R&D', both_phases: false, status: 'belum_ada', status_label: 'Belum ada', revision_reason: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: `/tickets/5/documents/${overrides.id}/versions`, current_version: null, ...overrides };
 }
 
 describe('tickets', () => {
@@ -503,6 +504,7 @@ describe('tickets', () => {
                 ]}
                 stages={[{ name: 'Pengembangan sampel', started_at: '05/11/2026 10:00', due_at: null, finished_at: null }]}
                 history={[{ id: 9, event: 'ticket.created', label: 'Tiket dibuat', actor: 'Rizal Marketing', created_at: '05/11/2026 10:00' }]}
+                {...noMaterials}
             />,
             { ...ticketRoutes, auth: { user: marketingUser, permissions: ['tickets.view'] } },
         );
@@ -537,6 +539,7 @@ describe('ticket documents', () => {
                 ] }]}
                 stages={[]}
                 history={[]}
+                {...noMaterials}
             />,
             { ...ticketRoutes, auth: { user: { ...staff, role: 'qa', role_label: 'QA/QC' }, permissions: ['tickets.view'] } },
         );
@@ -559,10 +562,41 @@ describe('ticket documents', () => {
 
     it('hides the upload action from staff who are not the person in charge', () => {
         renderPage(
-            <TicketShow ticket={ticketDetail} checklist={[{ phase: 'pra_registrasi', label: 'Pra-registrasi', progress: 0, documents: [checklistDocument({ id: 8, name: 'Master formula' })] }]} stages={[]} history={[]} />,
+            <TicketShow ticket={ticketDetail} checklist={[{ phase: 'pra_registrasi', label: 'Pra-registrasi', progress: 0, documents: [checklistDocument({ id: 8, name: 'Master formula' })] }]} stages={[]} history={[]} {...noMaterials} />,
             { ...ticketRoutes, auth: { user: staff, permissions: ['tickets.view'] } },
         );
 
         expect(screen.queryByRole('button', { name: 'Unggah Master formula' })).not.toBeInTheDocument();
+    });
+
+    it('lets R&D choose the raw materials of a ticket and shows material documents per material', async () => {
+        const user = userEvent.setup();
+        const requests: Array<{ url: string; data: Record<string, unknown> }> = [];
+        vi.spyOn(router, 'put').mockImplementation((url, data) => {
+            requests.push({ url: String(url), data: data as Record<string, unknown> });
+        });
+        renderPage(
+            <TicketShow
+                ticket={ticketDetail}
+                checklist={[{ phase: 'pra_registrasi', label: 'Pra-registrasi', progress: 0, documents: [checklistDocument({ id: 9, name: 'Asal peredaran bahan', material: 'Jahe merah', scope: 'Bahan baku' })] }]}
+                stages={[]}
+                history={[]}
+                materials={[{ id: 1, name: 'Jahe merah', supplier: 'CV Rempah' }]}
+                materialOptions={[{ value: 1, label: 'Jahe merah (CV Rempah)' }, { value: 2, label: 'Kunyit' }]}
+                can={{ manage_materials: true, create_material: true }}
+                urls={{ materials: '/tickets/5/materials', create_material: '/master/materials' }}
+            />,
+            { ...ticketRoutes, auth: { user: { ...staff, role: 'rnd', role_label: 'R&D' }, permissions: ['tickets.view', 'ticket_materials.manage', 'materials.create'] } },
+        );
+
+        expect(screen.getByText('Jahe merah · CV Rempah')).toBeInTheDocument();
+        expect(screen.getByText('· Jahe merah')).toBeInTheDocument();
+
+        await user.click(screen.getByRole('button', { name: 'Atur bahan baku' }));
+        expect(screen.getByRole('checkbox', { name: 'Jahe merah (CV Rempah)' })).toBeChecked();
+        await user.click(screen.getByRole('checkbox', { name: 'Kunyit' }));
+        await user.click(screen.getByRole('button', { name: 'Simpan 2 bahan' }));
+
+        expect(requests).toEqual([{ url: '/tickets/5/materials', data: { material_ids: [1, 2] } }]);
     });
 });

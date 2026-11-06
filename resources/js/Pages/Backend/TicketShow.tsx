@@ -1,5 +1,5 @@
 import { Link, useForm, usePage } from '@inertiajs/react';
-import { ArrowLeft, Download, FileText, Upload } from 'lucide-react';
+import { ArrowLeft, Download, FileText, FlaskConical, Plus, Upload } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import type { BackendSharedProps } from '../../backend-types';
 import { Badge, Button, EmptyState, Field, InfoBox, Modal, Panel, Progress } from '../../components/ui';
@@ -26,6 +26,7 @@ type DocumentVersion = { version: number; number: string; original_name: string;
 type ChecklistDocument = {
     id: number;
     name: string;
+    material: string | null;
     scope: string;
     requirement: string;
     pic: string | null;
@@ -42,12 +43,26 @@ type ChecklistDocument = {
 type ChecklistPhase = { phase: string; label: string; progress: number; documents: ChecklistDocument[] };
 type StageEntry = { name: string; started_at: string; due_at: string | null; finished_at: string | null };
 type HistoryEntry = { id: number; event: string; label: string; actor: string; created_at: string | null };
+type TicketMaterial = { id: number; name: string; supplier: string | null };
+type Option = { value: number; label: string };
+type MaterialAccess = { manage_materials: boolean; create_material: boolean };
+type MaterialUrls = { materials: string; create_material: string };
 
 const statusTones: Record<string, string> = { belum_ada: 'neutral', diunggah: 'blue', sedang_diverifikasi: 'amber', perlu_revisi: 'red', disetujui: 'green' };
 
-export default function TicketShow({ ticket, checklist, stages, history }: { ticket: TicketDetail; checklist: ChecklistPhase[]; stages: StageEntry[]; history: HistoryEntry[] }) {
+export default function TicketShow({ ticket, checklist, stages, history, materials, materialOptions, can, urls }: {
+    ticket: TicketDetail;
+    checklist: ChecklistPhase[];
+    stages: StageEntry[];
+    history: HistoryEntry[];
+    materials: TicketMaterial[];
+    materialOptions: Option[] | null;
+    can: MaterialAccess;
+    urls: MaterialUrls;
+}) {
     const { routes } = usePage<BackendSharedProps>().props;
     const [uploading, setUploading] = useState<ChecklistDocument | null>(null);
+    const [choosingMaterials, setChoosingMaterials] = useState(false);
 
     return (
         <BackendLayout title={`${ticket.code} · ${ticket.product_name}`}>
@@ -77,6 +92,13 @@ export default function TicketShow({ ticket, checklist, stages, history }: { tic
                     </ol>
                 </Panel>
             </div>
+            <div className="mt-5">
+                <Panel title="Bahan baku" description="Dokumen asal peredaran bahan yang masih berlaku langsung tertaut; bahan tanpa dokumen muncul sebagai butir checklist." action={can.manage_materials && materialOptions ? <Button variant="secondary" icon={FlaskConical} onClick={() => setChoosingMaterials(true)}>Atur bahan baku</Button> : undefined}>
+                    {materials.length ? (
+                        <div className="panel-body flex flex-wrap gap-2">{materials.map((material) => <Badge key={material.id} dot={false}>{material.supplier ? `${material.name} · ${material.supplier}` : material.name}</Badge>)}</div>
+                    ) : <EmptyState title="Belum ada bahan baku." description="R&D memilih bahan baku produk dari master." icon={FlaskConical} />}
+                </Panel>
+            </div>
             <div className="mt-5 two-column">
                 {checklist.map((phase) => (
                     <Panel key={phase.phase} title={`${phase.label} · ${phase.progress}%`}>
@@ -86,7 +108,7 @@ export default function TicketShow({ ticket, checklist, stages, history }: { tic
                                 <table className="w-full"><thead><tr><th>Dokumen</th><th>PIC</th><th>Status</th><th>Aksi</th></tr></thead>
                                     <tbody>{phase.documents.map((document) => <tr key={document.id}>
                                         <td>
-                                            <strong>{document.name}</strong>
+                                            <strong>{document.name}</strong>{document.material && <span className="text-gray-500"> · {document.material}</span>}
                                             <div className="mt-1 flex flex-wrap gap-1"><Badge dot={false}>{document.requirement}</Badge><Badge dot={false}>{document.scope}</Badge>{document.both_phases && <Badge dot={false} tone="blue">Kedua fase</Badge>}</div>
                                             {document.current_version && <div className="mt-1 text-xs text-gray-500">v{document.current_version.version} · No. {document.current_version.number}{document.current_version.issued_at ? ` · terbit ${document.current_version.issued_at}` : ''}{document.current_version.expires_at ? ` · berlaku s.d. ${document.current_version.expires_at}` : ''}</div>}
                                             {document.revision_reason && <p className="mt-1 text-xs text-red-700">{document.revision_reason}</p>}
@@ -113,6 +135,7 @@ export default function TicketShow({ ticket, checklist, stages, history }: { tic
                 </Panel>
             </div>
             {uploading && <DocumentUploader key={uploading.id} document={uploading} onClose={() => setUploading(null)} />}
+            {choosingMaterials && materialOptions && <MaterialPicker selected={materials.map((material) => material.id)} options={materialOptions} canCreate={can.create_material} urls={urls} onClose={() => setChoosingMaterials(false)} />}
         </BackendLayout>
     );
 }
@@ -134,6 +157,54 @@ function DocumentUploader({ document, onClose }: { document: ChecklistDocument; 
                 {document.requires_expires_at && <Field label="Tanggal kedaluwarsa" error={form.errors.expires_at}><input type="date" required value={form.data.expires_at} onChange={(event) => form.setData('expires_at', event.target.value)} /></Field>}
                 <div className="form-footer"><Button variant="secondary" onClick={onClose} disabled={form.processing}>Batal</Button><Button type="submit" disabled={form.processing || form.data.file === null}>{form.processing ? 'Mengunggah...' : 'Unggah versi baru'}</Button></div>
             </form>
+        </Modal>
+    );
+}
+
+function MaterialPicker({ selected, options, canCreate, urls, onClose }: { selected: number[]; options: Option[]; canCreate: boolean; urls: MaterialUrls; onClose: () => void }) {
+    const form = useForm<{ material_ids: number[] }>({ material_ids: selected });
+    const newMaterial = useForm({ name: '', supplier: '' });
+    const [search, setSearch] = useState('');
+    const visible = options.filter((option) => option.label.toLowerCase().includes(search.trim().toLowerCase()));
+    const selectionError = Object.entries(form.errors as Record<string, string>).find(([key]) => key === 'material_ids' || key.startsWith('material_ids.'))?.[1];
+
+    function toggle(id: number, checked: boolean) {
+        form.setData('material_ids', checked ? [...form.data.material_ids, id] : form.data.material_ids.filter((value) => value !== id));
+    }
+
+    function submit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        form.put(urls.materials, { preserveScroll: true, onSuccess: onClose });
+    }
+
+    function addMaterial(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        newMaterial.post(urls.create_material, { preserveScroll: true, preserveState: true, onSuccess: () => {
+            setSearch(newMaterial.data.name);
+            newMaterial.reset();
+        } });
+    }
+
+    return (
+        <Modal title="Atur bahan baku" description="Bahan yang dilepas menghapus butir checklist bahannya dari tiket ini; dokumen bahannya tetap tersimpan." onClose={onClose}>
+            <form onSubmit={submit} className="form-stack">
+                <Field label="Cari bahan"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nama bahan atau pemasok" /></Field>
+                <fieldset className="max-h-72 space-y-1 overflow-y-auto" aria-label="Daftar bahan baku">
+                    {visible.map((option) => <label key={option.value} className="flex items-center gap-2 text-sm">
+                        <input type="checkbox" checked={form.data.material_ids.includes(option.value)} onChange={(event) => toggle(option.value, event.target.checked)} />
+                        {option.label}
+                    </label>)}
+                    {!visible.length && <p className="text-sm text-gray-500">Bahan tidak ditemukan.</p>}
+                </fieldset>
+                {selectionError && <p className="form-error" role="alert">{selectionError}</p>}
+                <div className="form-footer"><Button variant="secondary" onClick={onClose} disabled={form.processing}>Batal</Button><Button type="submit" disabled={form.processing}>{form.processing ? 'Menyimpan...' : `Simpan ${form.data.material_ids.length} bahan`}</Button></div>
+            </form>
+            {canCreate && <form onSubmit={addMaterial} className="form-stack mt-5 border-t pt-4">
+                <p className="text-sm font-semibold">Bahan belum ada di master?</p>
+                <Field label="Nama bahan baru" error={newMaterial.errors.name}><input required maxLength={150} value={newMaterial.data.name} onChange={(event) => newMaterial.setData('name', event.target.value)} /></Field>
+                <Field label="Pemasok" error={newMaterial.errors.supplier} hint="Opsional."><input maxLength={150} value={newMaterial.data.supplier} onChange={(event) => newMaterial.setData('supplier', event.target.value)} /></Field>
+                <div className="form-footer"><Button type="submit" variant="secondary" icon={Plus} disabled={newMaterial.processing}>{newMaterial.processing ? 'Menambahkan...' : 'Tambah ke master'}</Button></div>
+            </form>}
         </Modal>
     );
 }

@@ -93,8 +93,9 @@ class StoreDocumentVersion
     }
 
     /**
-     * Dokumen milik tiket, atau dokumen bersama milik klien atau perusahaan yang dipakai
-     * ulang lintas tiket (BR-03). Dokumen bahan baku dikaitkan saat R&D memilih bahan.
+     * Dokumen milik tiket, atau dokumen bersama milik klien, bahan baku, atau perusahaan
+     * yang dipakai ulang lintas tiket (BR-03). Butir bahan baku tanpa bahan terpilih
+     * diperlakukan sebagai dokumen tiket.
      */
     private function documentFor(TicketDocument $item): Document
     {
@@ -103,18 +104,19 @@ class StoreDocumentVersion
         }
 
         $scope = $item->documentType->scope;
-        $owner = match ($scope) {
-            DocumentScope::Client => ['client_id' => $item->ticket->client_id],
-            DocumentScope::Company => [],
+        $owner = match (true) {
+            $scope === DocumentScope::Client => ['client_id' => $item->ticket->client_id],
+            $scope === DocumentScope::Company => [],
+            $scope === DocumentScope::Material && $item->material_id !== null => ['material_id' => $item->material_id],
             default => ['ticket_id' => $item->ticket_id],
         };
 
         return Document::query()->firstOrCreate([
             'document_type_id' => $item->document_type_id,
-            'scope' => $scope === DocumentScope::Material ? DocumentScope::Ticket : $scope,
+            'scope' => $scope === DocumentScope::Material && $item->material_id === null ? DocumentScope::Ticket : $scope,
             'ticket_id' => $owner['ticket_id'] ?? null,
             'client_id' => $owner['client_id'] ?? null,
-            'material_id' => null,
+            'material_id' => $owner['material_id'] ?? null,
         ]);
     }
 }
