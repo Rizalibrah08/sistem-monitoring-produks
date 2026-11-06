@@ -2,12 +2,6 @@
 
 return [
     'modules' => [
-        'priorities' => [
-            'title' => 'Antrean prioritas', 'path' => '/priorities', 'route' => 'priorities.index', 'icon' => 'activity', 'group' => 'Ruang kerja',
-            'roles' => ['manager', 'marketing', 'rnd', 'qa', 'ra'],
-            'description' => 'Urutan pekerjaan berdasarkan kriteria AHP–TOPSIS.', 'empty_title' => 'Belum ada antrean prioritas',
-            'columns' => ['Peringkat', 'Kode tiket', 'Produk', 'C1', 'C2', 'C3', 'C4', 'Skor'],
-        ],
         'tasks' => [
             'title' => 'Tugas dokumen', 'path' => '/tasks', 'route' => 'tasks.index', 'icon' => 'clipboard', 'group' => 'Ruang kerja',
             'roles' => ['rnd', 'qa', 'ra'],

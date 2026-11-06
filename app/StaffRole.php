@@ -30,12 +30,12 @@ enum StaffRole: string
     {
         return match ($this) {
             self::Admin => ['dashboard.view', 'users.manage', 'audit.view', 'master.manage', 'materials.create', 'document_rules.manage'],
-            self::Manager => ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view', 'invoices.view'],
+            self::Manager => ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view', 'invoices.view', 'priorities.view'],
             self::Finance => ['dashboard.view', 'invoices.view'],
-            self::Marketing => ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create', 'upload_links.manage', 'samples.record', 'contracts.manage'],
-            self::Research => ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage', 'lab_tests.manage'],
-            self::Quality => ['dashboard.view', 'tickets.view', 'documents.verify_content'],
-            self::Regulatory => ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve', 'documents.approve_usage', 'bpom.manage', 'lab_tests.manage'],
+            self::Marketing => ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create', 'upload_links.manage', 'samples.record', 'contracts.manage', 'priorities.view'],
+            self::Research => ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage', 'lab_tests.manage', 'priorities.view'],
+            self::Quality => ['dashboard.view', 'tickets.view', 'documents.verify_content', 'priorities.view'],
+            self::Regulatory => ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve', 'documents.approve_usage', 'bpom.manage', 'lab_tests.manage', 'priorities.view'],
             default => ['dashboard.view'],
         };
     }

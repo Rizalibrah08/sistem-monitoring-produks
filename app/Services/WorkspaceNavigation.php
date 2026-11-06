@@ -18,6 +18,10 @@ class WorkspaceNavigation
             $items[] = ['id' => 'tickets', 'label' => 'Daftar tiket', 'href' => route('tickets.index', absolute: false), 'icon' => 'ticket', 'group' => 'Ruang kerja', 'available' => true];
         }
 
+        if ($user->can('priorities.view')) {
+            $items[] = ['id' => 'priorities', 'label' => 'Antrean prioritas', 'href' => route('priorities.index', absolute: false), 'icon' => 'activity', 'group' => 'Ruang kerja', 'available' => true];
+        }
+
         foreach (config('workspace.modules', []) as $key => $module) {
             if (($module['navigation'] ?? true) && $user->hasAnyRole($module['roles'])) {
                 $items[] = [
