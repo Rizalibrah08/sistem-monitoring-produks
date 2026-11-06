@@ -15,6 +15,7 @@ import Master from '../../resources/js/Pages/Backend/Master';
 import Nie from '../../resources/js/Pages/Backend/Nie';
 import Notifications from '../../resources/js/Pages/Backend/Notifications';
 import Priorities from '../../resources/js/Pages/Backend/Priorities';
+import Reports from '../../resources/js/Pages/Backend/Reports';
 import Templates from '../../resources/js/Pages/Backend/Templates';
 import TicketShow from '../../resources/js/Pages/Backend/TicketShow';
 import UploadLink from '../../resources/js/Pages/Client/UploadLink';
@@ -80,16 +81,20 @@ describe('backend workspace', () => {
         expect(screen.getByRole('button', { name: 'Keluar' })).toBeInTheDocument();
     });
 
-    it('does not show demo tickets or fabricated operational statistics on the real dashboard', () => {
-        renderPage(<Dashboard />, {
+    it('shows statistics and tasks supplied by the server without demo data', () => {
+        renderPage(<Dashboard
+            stats={[{ key: 'late', label: 'Terlambat SLA', value: 2, detail: 'Tahap melewati tenggat' }, { key: 'prospects', label: 'Prospek baru', value: null, detail: 'Menunggu integrasi WhatsApp' }]}
+            tasks={[{ kind: 'revisi', title: 'Revisi Master formula', detail: 'Komposisi salah.', ticket_code: 'PRD-2026-0001', due: null, url: '/tickets/5' }]}
+            urls={{ tasks: '/tasks' }} />, {
             auth: { user: staff, permissions: ['dashboard.view'] },
             navigation: [{ label: 'Dasbor', href: '/dashboard' }],
         });
 
         expect(screen.getByRole('heading', { name: /^Dasbor$/ })).toBeInTheDocument();
-        expect(screen.getByText(/modul tiket dan dokumen belum/i)).toBeInTheDocument();
+        expect(screen.getByText('Terlambat SLA')).toBeInTheDocument();
+        expect(screen.getByText('—')).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: /Revisi Master formula/ })).toHaveAttribute('href', '/tickets/5');
         expect(screen.queryByText('PRD-2026-0012')).not.toBeInTheDocument();
-        expect(screen.queryByText('Kapsul sambiloto')).not.toBeInTheDocument();
     });
 });
 
@@ -1063,5 +1068,19 @@ describe('priority queue', () => {
         expect(screen.getByRole('link', { name: 'PRD-2026-0001' })).toHaveAttribute('href', '/tickets/5');
         expect(screen.getByText('0.8123')).toBeInTheDocument();
         expect(screen.getByText('Tenggat BPOM tinggal 2 hari kerja.')).toBeInTheDocument();
+    });
+});
+
+describe('duration report', () => {
+    it('separates internal, client, and external time and links the export', () => {
+        renderPage(
+            <Reports stages={[{ stage: 'Kontrak (MoU)', sla_days: 1, count: 2, average: 1.5, p75: 2, internal: 1, client: 2, external: 0 }]}
+                totals={{ internal: 1, client: 2, external: 0 }} filters={{ from: '2026-08-01', until: '2026-11-05' }} urls={{ export: '/reports/export?from=2026-08-01&until=2026-11-05' }} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['reports.view'] } },
+        );
+
+        expect(screen.getByText('Kontrak (MoU)')).toBeInTheDocument();
+        expect(screen.getByText('1.5')).toHaveClass('text-red-700');
+        expect(screen.getByRole('link', { name: 'Ekspor CSV' })).toHaveAttribute('href', '/reports/export?from=2026-08-01&until=2026-11-05');
     });
 });
