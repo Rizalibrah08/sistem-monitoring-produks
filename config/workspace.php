@@ -38,10 +38,5 @@ return [
             'description' => 'Mulai percakapan dengan klien melalui nomor Marketing.', 'empty_title' => 'Belum terhubung ke WhatsApp',
             'integration' => 'whatsapp', 'actions' => ['Kirim pesan'],
         ],
-        'sync-checklist' => [
-            'title' => 'Sinkronisasi checklist', 'path' => '/sync-checklist', 'route' => 'checklist_sync.index', 'icon' => 'clipboard', 'group' => 'Operasional',
-            'roles' => ['ra'], 'navigation' => false,
-            'description' => 'Peninjauan aturan dokumen terbaru untuk tiket aktif.', 'empty_title' => 'Belum ada checklist untuk disinkronkan',
-        ],
     ],
 ];

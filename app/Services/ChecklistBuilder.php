@@ -10,6 +10,10 @@ use App\Models\DocumentRule;
 use App\Models\DocumentType;
 use App\Models\Material;
 use App\Models\Ticket;
+use App\Models\TicketDocument;
+use App\StagePhase;
+use App\SubmissionStatus;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -52,12 +56,68 @@ class ChecklistBuilder
     }
 
     /**
+     * Perbedaan checklist tiket dengan jenis dokumen wajib dan aturan yang berlaku pada
+     * tanggal tertentu (FR-21): butir yang perlu ditambahkan, dan butir otomatis yang tidak
+     * lagi diwajibkan serta belum memiliki berkas sehingga aman dilepas. Fase yang sudah
+     * diajukan ke BPOM tidak diubah karena versinya terkunci (BR-06).
+     *
+     * @return array{missing: Collection<int, array{type: DocumentType, rule_id: ?int, material: ?Material}>, obsolete: Collection<int, TicketDocument>}
+     */
+    public function differences(Ticket $ticket, CarbonInterface $asOf): array
+    {
+        $ticket->loadMissing(['documents.documentType', 'materials', 'bpomSubmissions']);
+        $locked = $ticket->bpomSubmissions->where('status', '!=', SubmissionStatus::Expired)->pluck('phase')->unique()->all();
+        $open = fn (StagePhase $phase): bool => ! in_array($phase, $locked, true) && ($phase !== StagePhase::BothPhases || $locked === []);
+
+        $expected = $this->applicableTypes($ticket, material: false, asOf: $asOf)
+            ->map(fn (array $entry): array => [...$entry, 'material' => null])
+            ->concat($ticket->materials->flatMap(fn (Material $material): Collection => $this->applicableTypes($ticket, material: true, asOf: $asOf)
+                ->map(fn (array $entry): array => [...$entry, 'material' => $material])))
+            ->filter(fn (array $entry): bool => $open($entry['type']->phase))
+            ->keyBy(fn (array $entry): string => $entry['type']->id.'|'.($entry['material']?->id ?? ''));
+
+        $existing = $ticket->documents->keyBy(fn (TicketDocument $item): string => $item->document_type_id.'|'.($item->material_id ?? ''));
+
+        return [
+            'missing' => $expected->diffKeys($existing)->values(),
+            'obsolete' => $existing->diffKeys($expected)
+                ->filter(fn (TicketDocument $item): bool => $open($item->phase) && $item->document_id === null && $item->status === DocumentStatus::Missing
+                    && $item->requirement !== DocumentRequirement::Optional)
+                ->values(),
+        ];
+    }
+
+    /**
+     * Terapkan perbedaan checklist: tambahkan butir yang kurang dan lepas butir yang tidak
+     * lagi diwajibkan (FR-21).
+     *
+     * @return array{added: list<string>, removed: list<string>, linked: int}
+     */
+    public function sync(Ticket $ticket, CarbonInterface $asOf): array
+    {
+        ['missing' => $missing, 'obsolete' => $obsolete] = $this->differences($ticket, $asOf);
+        $result = $this->store($ticket, $missing->map(fn (array $entry): array => $this->item($ticket, $entry['type'], $entry['rule_id'], $entry['material'])));
+        TicketDocument::query()->whereKey($obsolete->modelKeys())->delete();
+
+        return [
+            'added' => $missing->map(fn (array $entry): string => self::label($entry['type'], $entry['material']))->values()->all(),
+            'removed' => $obsolete->map(fn (TicketDocument $item): string => self::label($item->documentType, $item->material))->values()->all(),
+            'linked' => $result['linked'],
+        ];
+    }
+
+    public static function label(DocumentType $type, ?Material $material): string
+    {
+        return $material === null ? $type->name : "{$type->name} · {$material->name}";
+    }
+
+    /**
      * Jenis dokumen wajib yang aktif ditambah jenis kondisional yang aturannya berlaku,
      * dipisah antara cakupan bahan baku dan cakupan lainnya.
      *
      * @return Collection<int, array{type: DocumentType, rule_id: ?int}>
      */
-    private function applicableTypes(Ticket $ticket, bool $material): Collection
+    private function applicableTypes(Ticket $ticket, bool $material, ?CarbonInterface $asOf = null): Collection
     {
         $ticket->loadMissing(['dosageForm', 'category']);
         $scoped = fn (Builder $query): Builder => $material
@@ -71,7 +131,7 @@ class ChecklistBuilder
             ->get();
 
         $rules = DocumentRule::query()
-            ->appliesTo($ticket->dosageForm, $ticket->category, $ticket->created_at)
+            ->appliesTo($ticket->dosageForm, $ticket->category, $asOf ?? $ticket->created_at)
             ->whereHas('documentType', fn (Builder $query) => $scoped($query)
                 ->where('is_active', true)
                 ->where('requirement', DocumentRequirement::Conditional))

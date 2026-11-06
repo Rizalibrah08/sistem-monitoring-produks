@@ -84,6 +84,7 @@ class WorkspaceNavigation
 
         if ($user->can('document_rules.manage')) {
             $items[] = ['id' => 'document-rules', 'label' => 'Aturan dokumen', 'href' => route('document-rules.index', absolute: false), 'icon' => 'file-check', 'group' => 'Administrasi', 'available' => true];
+            $items[] = ['id' => 'sync-checklist', 'label' => 'Sinkronisasi checklist', 'href' => route('checklist_sync.index', absolute: false), 'icon' => 'clipboard', 'group' => 'Administrasi', 'available' => true];
         }
 
         if ($user->can('users.manage')) {

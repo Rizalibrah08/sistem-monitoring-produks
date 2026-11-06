@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import Login from '../../resources/js/Pages/Auth/Login';
 import Audit from '../../resources/js/Pages/Backend/Audit';
 import Bpom from '../../resources/js/Pages/Backend/Bpom';
+import ChecklistSync from '../../resources/js/Pages/Backend/ChecklistSync';
 import Clients from '../../resources/js/Pages/Backend/Clients';
 import Contracts from '../../resources/js/Pages/Backend/Contracts';
 import Invoices from '../../resources/js/Pages/Backend/Invoices';
@@ -1107,5 +1108,25 @@ describe('audit log', () => {
         await user.click(screen.getByRole('button', { name: 'Verifikasi integritas' }));
 
         expect(requests).toEqual(['/audit/verify']);
+    });
+});
+
+describe('checklist sync', () => {
+    it('lists the differences of each ticket and syncs it', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url) => {
+            requests.push(url);
+        });
+        renderPage(
+            <ChecklistSync tickets={[{ id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', add: ['Uji stabilitas'], remove: ['Formulir lama'], ticket_url: '/tickets/5', sync_url: '/tickets/5/checklist-sync' }]} />,
+            { ...ticketRoutes, auth: { user: staff, permissions: ['document_rules.manage'] } },
+        );
+
+        expect(screen.getByText('Uji stabilitas')).toBeInTheDocument();
+        expect(screen.getByText('Formulir lama')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Sinkronkan PRD-2026-0001' }));
+
+        expect(requests).toEqual(['/tickets/5/checklist-sync']);
     });
 });
