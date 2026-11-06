@@ -118,6 +118,7 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::get('/contracts/{contract}/files/{file}', [ContractController::class, 'download'])->whereIn('file', ['word', 'pdf', 'signed'])->name('contracts.files');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
+    Route::post('/tickets/batch', [TicketController::class, 'storeBatch'])->middleware('can:tickets.create')->name('tickets.store-batch');
     Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
     Route::get('/qa-review', [DocumentVerificationController::class, 'quality'])->middleware('can:documents.verify_content')->name('quality.index');
     Route::get('/verification', [DocumentVerificationController::class, 'usage'])->middleware('can:documents.approve_usage')->name('verification.index');

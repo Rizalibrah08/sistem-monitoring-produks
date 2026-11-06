@@ -1158,3 +1158,32 @@ describe('shared documents', () => {
         expect(requests[0].data).toMatchObject({ document_type_id: '9', number: 'HL-2', expires_at: '2027-11-20' });
     });
 });
+
+describe('batch tickets', () => {
+    it('lets marketing create several tickets for one client', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <Tickets {...ticketListProps} urls={{ ...ticketListProps.urls, store_batch: '/tickets/batch' }} can={{ create: true }}
+                createOptions={{ clients: [{ value: 3, label: 'Nusantara Herbal' }], dosageForms: [{ value: 1, label: 'Kapsul' }], categories: [{ value: 2, label: 'Jamu' }] }} />,
+            { ...ticketRoutes, auth: { user: marketingUser, permissions: ['tickets.view', 'tickets.create'] } },
+        );
+
+        await user.click(screen.getByRole('button', { name: 'Buat beberapa tiket' }));
+        await user.selectOptions(screen.getByLabelText('Klien'), '3');
+        for (const index of [1, 2]) {
+            await user.type(screen.getByLabelText(`Nama produk ${index}`), `Produk ${index}`);
+            await user.selectOptions(screen.getByLabelText(`Sediaan ${index}`), '1');
+            await user.selectOptions(screen.getByLabelText(`Kategori ${index}`), '2');
+        }
+        await user.click(screen.getByRole('button', { name: 'Simpan 2 tiket' }));
+
+        expect(requests).toEqual([{ url: '/tickets/batch', data: { client_id: '3', products: [
+            { product_name: 'Produk 1', dosage_form_id: '1', category_id: '2' },
+            { product_name: 'Produk 2', dosage_form_id: '1', category_id: '2' },
+        ] } }]);
+    });
+});
