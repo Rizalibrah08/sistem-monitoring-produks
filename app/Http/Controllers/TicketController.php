@@ -36,6 +36,7 @@ class TicketController extends Controller
     private const EVENT_LABELS = [
         'ticket.created' => 'Tiket dibuat',
         'document.uploaded' => 'Dokumen diunggah',
+        'document.reviewed' => 'Dokumen diverifikasi',
         'ticket.materials_updated' => 'Bahan baku diperbarui',
         'upload_link.created' => 'Tautan unggah klien dibuat',
         'sample.recorded' => 'Keputusan sampel dicatat',
@@ -168,6 +169,7 @@ class TicketController extends Controller
                         'status' => $document->status->value,
                         'status_label' => $document->status->label(),
                         'revision_reason' => $document->revision_reason,
+                        'content_verified' => $document->needsContentReview() && $document->document !== null ? $document->contentApproved() : null,
                         'requires_issued_at' => $document->documentType->max_age_months !== null,
                         'requires_expires_at' => $document->documentType->requires_expiry_date,
                         'can_upload' => $document->canBeUploadedBy($user),

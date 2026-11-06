@@ -38,6 +38,7 @@ type ChecklistDocument = {
     status: string;
     status_label: string;
     revision_reason: string | null;
+    content_verified: boolean | null;
     requires_issued_at: boolean;
     requires_expires_at: boolean;
     can_upload: boolean;
@@ -144,7 +145,7 @@ export default function TicketShow({ ticket, checklist, stages, history, materia
                                     <tbody>{phase.documents.map((document) => <tr key={document.id}>
                                         <td>
                                             <strong>{document.name}</strong>{document.material && <span className="text-gray-500"> · {document.material}</span>}
-                                            <div className="mt-1 flex flex-wrap gap-1"><Badge dot={false}>{document.requirement}</Badge><Badge dot={false}>{document.scope}</Badge>{document.both_phases && <Badge dot={false} tone="blue">Kedua fase</Badge>}</div>
+                                            <div className="mt-1 flex flex-wrap gap-1"><Badge dot={false}>{document.requirement}</Badge><Badge dot={false}>{document.scope}</Badge>{document.both_phases && <Badge dot={false} tone="blue">Kedua fase</Badge>}{document.content_verified && <Badge dot={false} tone="green">Isi terverifikasi QA</Badge>}</div>
                                             {document.current_version && <div className="mt-1 text-xs text-gray-500">v{document.current_version.version} · No. {document.current_version.number}{document.current_version.issued_at ? ` · terbit ${document.current_version.issued_at}` : ''}{document.current_version.expires_at ? ` · berlaku s.d. ${document.current_version.expires_at}` : ''}</div>}
                                             {document.revision_reason && <p className="mt-1 text-xs text-red-700">{document.revision_reason}</p>}
                                         </td>

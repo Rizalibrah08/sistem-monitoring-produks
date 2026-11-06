@@ -4,11 +4,14 @@ namespace App\Models;
 
 use App\DocumentRequirement;
 use App\DocumentStatus;
+use App\ReviewDecision;
+use App\ReviewLevel;
 use App\StaffRole;
 use App\StagePhase;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Satu butir checklist dokumen pada tiket (FR-11). Fase dan sifat disalin dari jenis
@@ -78,6 +81,37 @@ class TicketDocument extends Model
         return $role === $pic
             || $role === StaffRole::Regulatory->value
             || ($pic === DocumentType::CLIENT_PIC && $role === StaffRole::Marketing->value);
+    }
+
+    /** @return HasMany<DocumentReview, $this> */
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(DocumentReview::class);
+    }
+
+    /** Jenis dokumen mutu dengan verifikator QA/QC memerlukan verifikasi isi sebelum RA (FR-24). */
+    public function needsContentReview(): bool
+    {
+        return $this->documentType->verifier_role === 'qa';
+    }
+
+    /** Keputusan isi terakhir atas versi terkini adalah disetujui, dari tiket mana pun. */
+    public function contentApproved(): bool
+    {
+        $versionId = $this->document?->current_version_id;
+
+        return $versionId !== null && DocumentReview::query()
+            ->where('document_version_id', $versionId)->where('level', ReviewLevel::Content)
+            ->latest('id')->value('decision') === ReviewDecision::Approved;
+    }
+
+    /**
+     * Penanda keadaan butir saat halaman dimuat; berubah setiap kali status, alasan, atau
+     * versi dokumennya berubah, sehingga keputusan atas data usang dapat ditolak (FR-33).
+     */
+    public function concurrencyToken(): string
+    {
+        return hash('sha256', implode('|', [$this->status->value, $this->revision_reason, $this->document?->current_version_id, $this->updated_at?->format('Y-m-d H:i:s.u')]));
     }
 
     /** Butir ini dihitung pada fase tersebut, termasuk butir yang berlaku untuk kedua fase. */

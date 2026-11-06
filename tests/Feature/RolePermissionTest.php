@@ -33,7 +33,7 @@ class RolePermissionTest extends TestCase
 
     /** @var list<string> */
     private const ALL_PERMISSIONS = [
-        'audit.view', 'clients.manage', 'contracts.manage', 'dashboard.view', 'invoices.view', 'document_rules.manage', 'master.manage',
+        'audit.view', 'clients.manage', 'contracts.manage', 'dashboard.view', 'documents.approve_usage', 'documents.verify_content', 'invoices.view', 'document_rules.manage', 'master.manage',
         'materials.create', 'samples.record', 'ticket_materials.manage', 'ticket_reviews.resolve', 'tickets.create', 'tickets.view', 'upload_links.manage', 'users.manage',
     ];
 
@@ -58,8 +58,8 @@ class RolePermissionTest extends TestCase
             'manager' => ['manager', ['dashboard.view', 'audit.view', 'clients.manage', 'tickets.view', 'invoices.view']],
             'marketing' => ['marketing', ['dashboard.view', 'clients.manage', 'tickets.view', 'tickets.create', 'upload_links.manage', 'samples.record', 'contracts.manage']],
             'research' => ['rnd', ['dashboard.view', 'materials.create', 'tickets.view', 'ticket_materials.manage']],
-            'quality' => ['qa', ['dashboard.view', 'tickets.view']],
-            'regulatory' => ['ra', ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve']],
+            'quality' => ['qa', ['dashboard.view', 'tickets.view', 'documents.verify_content']],
+            'regulatory' => ['ra', ['dashboard.view', 'document_rules.manage', 'tickets.view', 'upload_links.manage', 'ticket_reviews.resolve', 'documents.approve_usage']],
             'finance' => ['finance', ['dashboard.view', 'invoices.view']],
         ];
     }

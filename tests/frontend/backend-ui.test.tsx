@@ -17,6 +17,7 @@ import UploadLink from '../../resources/js/Pages/Client/UploadLink';
 import UploadLinkExpired from '../../resources/js/Pages/Client/UploadLinkExpired';
 import Samples from '../../resources/js/Pages/Backend/Samples';
 import Tickets from '../../resources/js/Pages/Backend/Tickets';
+import Verification from '../../resources/js/Pages/Backend/Verification';
 import { BackendLayout } from '../../resources/js/layouts/backend-layout';
 
 function renderPage(children: ReactNode, overrides: Record<string, unknown> = {}) {
@@ -459,9 +460,9 @@ const ticketUrls = { materials: '/tickets/5/materials', create_material: '/maste
 const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false, resolve_reviews: false, manage_contract: false, create_contract: false };
 const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null, invoices: [] };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
-type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
+type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; content_verified: boolean | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
-    return { material: null, scope: 'Tiket', requirement: 'Wajib', pic: 'R&D', both_phases: false, status: 'belum_ada', status_label: 'Belum ada', revision_reason: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: `/tickets/5/documents/${overrides.id}/versions`, current_version: null, ...overrides };
+    return { material: null, scope: 'Tiket', requirement: 'Wajib', pic: 'R&D', both_phases: false, status: 'belum_ada', status_label: 'Belum ada', revision_reason: null, content_verified: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: `/tickets/5/documents/${overrides.id}/versions`, current_version: null, ...overrides };
 }
 
 describe('tickets', () => {
@@ -894,5 +895,42 @@ describe('receivables', () => {
         expect(screen.getByText('Nusantara Herbal')).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'Ekspor CSV' })).toHaveAttribute('href', '/receivables/export');
         expect(screen.getByText('01/11/2026')).toBeInTheDocument();
+    });
+});
+
+describe('document verification', () => {
+    const item = {
+        id: 4, ticket_code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', ticket_url: '/tickets/5', name: 'CoA produk jadi', material: null, phase_label: 'Pra-registrasi', pic: 'QA/QC', content_verified: true,
+        version: { version: 2, number: 'COA-10', issued_at: '20/10/2026', expires_at: null, uploaded_at: '05/11/2026 10:00', uploaded_by: 'Petugas QA', download_url: '/document-versions/7/download' },
+        token: 'a'.repeat(64), review_url: '/ticket-documents/4/reviews/pemakaian',
+    };
+
+    it('lets regulatory affairs approve a document with the token of the loaded state', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(<Verification level="pemakaian" title="Verifikasi dokumen" description="Antrean RA" items={[item]} />, { ...ticketRoutes, auth: { user: staff, permissions: ['documents.approve_usage'] } });
+
+        expect(screen.getByText('Isi terverifikasi QA')).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Setujui CoA produk jadi PRD-2026-0001' }));
+
+        expect(requests).toEqual([{ url: '/ticket-documents/4/reviews/pemakaian', data: { decision: 'disetujui', note: '', token: 'a'.repeat(64) } }]);
+    });
+
+    it('requires a reason when returning a document for revision', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(<Verification level="pemakaian" title="Verifikasi dokumen" description="Antrean RA" items={[item]} />, { ...ticketRoutes, auth: { user: staff, permissions: ['documents.approve_usage'] } });
+
+        await user.click(screen.getByRole('button', { name: 'Kembalikan CoA produk jadi PRD-2026-0001' }));
+        await user.type(screen.getByLabelText('Alasan revisi'), 'Nomor batch tidak sesuai.');
+        await user.click(screen.getByRole('button', { name: 'Kembalikan dokumen' }));
+
+        expect(requests).toEqual([{ url: '/ticket-documents/4/reviews/pemakaian', data: { decision: 'perlu_revisi', note: 'Nomor batch tidak sesuai.', token: 'a'.repeat(64) } }]);
     });
 });
