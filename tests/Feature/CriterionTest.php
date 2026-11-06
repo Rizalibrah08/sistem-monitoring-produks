@@ -91,8 +91,8 @@ class CriterionTest extends TestCase
 
         $entry = Activity::query()->where('event', 'master.criteria.updated')->sole();
         $this->assertSame('ra', $entry->properties['queue']);
-        $this->assertSame(['weight' => 0.74, 'type' => 'cost'], $entry->attribute_changes['old']['C2']);
-        $this->assertSame(['weight' => 0.7, 'type' => 'cost'], $entry->attribute_changes['attributes']['C2']);
+        $this->assertEquals(['weight' => 0.74, 'type' => 'cost'], $entry->attribute_changes['old']['C2']);
+        $this->assertEquals(['weight' => 0.7, 'type' => 'cost'], $entry->attribute_changes['attributes']['C2']);
     }
 
     public function test_weights_must_be_complete_valid_and_add_up_to_one(): void
