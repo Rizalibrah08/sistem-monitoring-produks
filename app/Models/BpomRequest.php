@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Catatan atau tambahan data BPOM (TD1–TD3) dengan tenggat 60 hari kerja (FR-29, FR-90, BR-23).
  */
-#[Fillable(['ticket_id', 'bpom_submission_id', 'sequence', 'note', 'requested_on', 'deadline', 'responded_at', 'recorded_by'])]
+#[Fillable(['ticket_id', 'bpom_submission_id', 'sequence', 'note', 'requested_on', 'deadline', 'responded_at', 'reminded_days', 'recorded_by'])]
 class BpomRequest extends Model
 {
     /** Batas tambahan data per pengajuan; TD3 yang tidak terpenuhi berarti pendaftaran ditolak. */
@@ -29,6 +29,7 @@ class BpomRequest extends Model
             'requested_on' => 'date',
             'deadline' => 'date',
             'responded_at' => 'datetime',
+            'reminded_days' => 'integer',
             'recorded_by' => 'integer',
         ];
     }

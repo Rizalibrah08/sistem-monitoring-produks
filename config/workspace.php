@@ -67,10 +67,5 @@ return [
             'roles' => ['ra'], 'navigation' => false,
             'description' => 'Peninjauan aturan dokumen terbaru untuk tiket aktif.', 'empty_title' => 'Belum ada checklist untuk disinkronkan',
         ],
-        'notifications' => [
-            'title' => 'Pusat notifikasi', 'path' => '/notifications', 'route' => 'notifications.index', 'icon' => 'bell', 'group' => 'Ruang kerja',
-            'roles' => ['admin', 'manager', 'marketing', 'rnd', 'qa', 'ra', 'finance'], 'navigation' => false,
-            'description' => 'Tugas, tenggat, pesan, dan perubahan status yang memerlukan perhatian.', 'empty_title' => 'Belum ada notifikasi',
-        ],
     ],
 ];

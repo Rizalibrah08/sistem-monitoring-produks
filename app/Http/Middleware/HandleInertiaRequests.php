@@ -81,7 +81,8 @@ class HandleInertiaRequests extends Middleware
             'workspace' => [
                 'search_available' => false,
                 'whatsapp_connected' => false,
-                'notifications_available' => false,
+                'notifications_available' => true,
+                'notifications_unread' => fn (): int => $request->user()?->unreadNotifications()->count() ?? 0,
             ],
             'flash' => [
                 'status' => fn (): ?string => $request->session()->get('status'),

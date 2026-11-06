@@ -10,12 +10,13 @@ use App\ReviewDecision;
 use App\ReviewLevel;
 use App\Services\AuditLogger;
 use App\Services\RepairStage;
+use App\Services\StaffNotifier;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class ReviewTicketDocument
 {
-    public function __construct(private AuditLogger $audit, private RepairStage $repair) {}
+    public function __construct(private AuditLogger $audit, private RepairStage $repair, private StaffNotifier $notifier) {}
 
     /**
      * Catat keputusan verifikasi manual atas versi terkini butir checklist. QA/QC memeriksa
@@ -60,10 +61,12 @@ class ReviewTicketDocument
             if ($decision === ReviewDecision::NeedsRevision) {
                 $item->update(['status' => DocumentStatus::NeedsRevision, 'revision_reason' => $note]);
                 $this->repair->open($item->ticket);
+                $this->notifier->documentReturned($item, (string) $note, $actor);
             } elseif ($level === ReviewLevel::Usage) {
                 $item->update(['status' => DocumentStatus::Approved, 'revision_reason' => null]);
             } else {
                 $item->touch();
+                $this->notifier->documentAwaitingReview($item, $actor);
             }
 
             $this->audit->record('document.reviewed', $review, $before, [

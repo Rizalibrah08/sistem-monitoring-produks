@@ -13,6 +13,7 @@ import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
 import Nie from '../../resources/js/Pages/Backend/Nie';
+import Notifications from '../../resources/js/Pages/Backend/Notifications';
 import Templates from '../../resources/js/Pages/Backend/Templates';
 import TicketShow from '../../resources/js/Pages/Backend/TicketShow';
 import UploadLink from '../../resources/js/Pages/Client/UploadLink';
@@ -1021,5 +1022,29 @@ describe('lab tests and NIE', () => {
             { ...ticketRoutes, auth: { user: staff, permissions: ['bpom.manage'] } });
 
         expect(screen.getByText('Diminta 01/11/2026')).toBeInTheDocument();
+    });
+});
+
+describe('notifications', () => {
+    it('lists notifications with links to the related screen and marks all as read', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url) => {
+            requests.push(url);
+        });
+        renderPage(
+            <Notifications
+                notifications={{ data: [{ id: 'n1', kind: 'eskalasi_sla', title: 'Dokumen pra-registrasi melewati tenggat', body: 'PRD-2026-0001 · tertunda di pihak internal.', ticket_code: 'PRD-2026-0001', read: false, created_at: '06/11/2026 09:00', open_url: '/notifications/n1/open' }], current_page: 1, last_page: 1, total: 1, prev_page_url: null, next_page_url: null }}
+                unread={1}
+                urls={{ read_all: '/notifications/read' }}
+            />,
+            { ...ticketRoutes, routes: { ...ticketRoutes.routes, notifications: '/notifications' }, workspace: { search_available: false, whatsapp_connected: false, notifications_available: true, notifications_unread: 1 }, auth: { user: staff, permissions: [] } },
+        );
+
+        expect(screen.getByRole('link', { name: /Dokumen pra-registrasi melewati tenggat/ })).toHaveAttribute('href', '/notifications/n1/open');
+        expect(screen.getByRole('link', { name: 'Buka notifikasi, 1 belum dibaca' })).toBeInTheDocument();
+        await user.click(screen.getByRole('button', { name: 'Tandai semua dibaca (1)' }));
+
+        expect(requests).toEqual(['/notifications/read']);
     });
 });

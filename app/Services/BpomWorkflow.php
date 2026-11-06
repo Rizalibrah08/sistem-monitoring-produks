@@ -27,7 +27,7 @@ class BpomWorkflow
     /** Tenggat pemenuhan tambahan data BPOM (BR-23). */
     public const ADDITIONAL_DATA_DAYS = 60;
 
-    public function __construct(private AuditLogger $audit, private WorkingDays $workingDays, private RepairStage $repair) {}
+    public function __construct(private AuditLogger $audit, private WorkingDays $workingDays, private RepairStage $repair, private StaffNotifier $notifier) {}
 
     /**
      * Catat pengajuan fase berjalan ke BPOM beserta PNBP dan kunci versi setiap dokumen
@@ -156,6 +156,8 @@ class BpomWorkflow
             if ($items->isNotEmpty()) {
                 $this->repair->open($submission->ticket);
             }
+
+            $items->each(fn (TicketDocument $item) => $this->notifier->documentReturned($item, "Tambahan data BPOM {$request->code()}: {$note}", $actor));
 
             $this->audit->record('bpom.additional_data', $request, after: [
                 'code' => $request->code(),
