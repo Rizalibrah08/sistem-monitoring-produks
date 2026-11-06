@@ -19,9 +19,10 @@ use Illuminate\Database\Seeder;
 use RuntimeException;
 
 /**
- * Data contoh untuk demo lokal: akun setiap role, master data, klien, dan tiket yang
- * dibuat lewat alur aplikasi sehingga checklist tersusun otomatis. Semua nama diberi
- * label contoh dan nomor WhatsApp fiktif. Seeder menolak berjalan di luar local/testing.
+ * Data contoh untuk demo lokal dan UAT: akun setiap role, master data, klien, dan lima
+ * tiket yang dijalankan lewat alur aplikasi sampai tahap berbeda-beda (lihat DemoWorkflows).
+ * Semua nama diberi label contoh dan nomor WhatsApp fiktif. Seeder menolak berjalan di luar
+ * local/testing.
  *
  *   php artisan db:seed --class=DemoSeeder
  */
@@ -40,7 +41,7 @@ class DemoSeeder extends Seeder
         'manager' => ['manajer@aisha.test', 'Hendra Manajer'],
     ];
 
-    public function __construct(private CreateTicket $createTicket) {}
+    public function __construct(private CreateTicket $createTicket, private DemoWorkflows $workflows) {}
 
     public function run(): void
     {
@@ -56,7 +57,12 @@ class DemoSeeder extends Seeder
         $this->materials();
         $this->holidays();
         $this->documentTypes($forms['Cairan obat dalam']);
-        $this->tickets($users['marketing'], $forms, $categories);
+        $tickets = $this->tickets($users['marketing'], $forms, $categories);
+
+        if ($tickets !== null) {
+            $link = $this->workflows->run($users, $tickets);
+            $this->command?->info("Tautan unggah klien demo (Sirup Temulawak): {$link}");
+        }
     }
 
     /** @return array<string, User> */
@@ -92,7 +98,7 @@ class DemoSeeder extends Seeder
 
     private function materials(): void
     {
-        foreach (['Jahe merah' => 'CV Rempah Nusantara (contoh)', 'Temulawak' => 'CV Rempah Nusantara (contoh)', 'Kunyit' => 'PT Herba Lestari (contoh)', 'Sambiloto' => null] as $name => $supplier) {
+        foreach (['Jahe merah' => 'CV Rempah Nusantara (contoh)', 'Temulawak' => 'CV Rempah Nusantara (contoh)', 'Kunyit' => 'PT Herba Lestari (contoh)', 'Sambiloto' => null, 'Kunyit putih' => 'PT Herba Lestari (contoh)'] as $name => $supplier) {
             Material::query()->firstOrCreate(['name' => $name], ['supplier' => $supplier]);
         }
     }
@@ -116,14 +122,15 @@ class DemoSeeder extends Seeder
             ['Spesifikasi produk jadi', StagePhase::PreRegistration, DocumentScope::Ticket, DocumentRequirement::Required, 'qa', 'qa', false, null],
             ['Asal peredaran bahan', StagePhase::PreRegistration, DocumentScope::Material, DocumentRequirement::Required, 'rnd', null, false, null],
             ['CoA bahan baku', StagePhase::Registration, DocumentScope::Ticket, DocumentRequirement::Required, 'qa', 'qa', false, 6],
-            ['CoA produk jadi', StagePhase::Registration, DocumentScope::Ticket, DocumentRequirement::Required, 'qa', 'qa', false, 6],
+            ['CoA produk jadi', StagePhase::Registration, DocumentScope::Ticket, DocumentRequirement::Required, 'qa', 'qa', false, 6, true],
             ['Sistem penomoran batch', StagePhase::Registration, DocumentScope::Company, DocumentRequirement::Required, 'qa', null, false, null],
             ['Sertifikat halal', StagePhase::Registration, DocumentScope::Company, DocumentRequirement::Required, 'qa', null, true, null],
             ['Desain kemasan', StagePhase::Registration, DocumentScope::Ticket, DocumentRequirement::Required, 'marketing', null, false, null],
             ['Uji cemaran mikroba', StagePhase::Registration, DocumentScope::Ticket, DocumentRequirement::Conditional, 'qa', 'qa', false, 6],
         ];
 
-        foreach ($types as [$name, $phase, $scope, $requirement, $pic, $verifier, $requiresExpiry, $maxAge]) {
+        foreach ($types as $type) {
+            [$name, $phase, $scope, $requirement, $pic, $verifier, $requiresExpiry, $maxAge] = $type;
             DocumentType::query()->firstOrCreate(['name' => $name], [
                 'phase' => $phase,
                 'scope' => $scope,
@@ -132,6 +139,7 @@ class DemoSeeder extends Seeder
                 'verifier_role' => $verifier,
                 'requires_expiry_date' => $requiresExpiry,
                 'max_age_months' => $maxAge,
+                'checks_product_name' => $type[8] ?? false,
             ]);
         }
 
@@ -146,8 +154,9 @@ class DemoSeeder extends Seeder
     /**
      * @param  array<string, DosageForm|Category>  $forms
      * @param  array<string, DosageForm|Category>  $categories
+     * @return array<string, Ticket>|null tiket baru per nama produk; null bila data demo sudah ada
      */
-    private function tickets(User $marketing, array $forms, array $categories): void
+    private function tickets(User $marketing, array $forms, array $categories): ?array
     {
         $nusantara = Client::query()->firstOrCreate(['whatsapp' => '6281200000001'], [
             'name' => 'Nusantara Herbal (contoh)', 'company' => 'CV Nusantara Herbal', 'pic_name' => 'Nadia Putri',
@@ -159,22 +168,27 @@ class DemoSeeder extends Seeder
         ]);
 
         if (Ticket::query()->whereIn('client_id', [$nusantara->id, $bumi->id])->exists()) {
-            return;
+            return null;
         }
 
         $tickets = [
             [$nusantara, 'Kapsul Jahe Merah', 'Kapsul', 'Jamu'],
             [$nusantara, 'Sirup Temulawak', 'Cairan obat dalam', 'Jamu'],
             [$bumi, 'Serbuk Kunyit Asam', 'Serbuk', 'Obat Herbal Terstandar'],
+            [$bumi, 'Tablet Sambiloto', 'Tablet', 'Obat Herbal Terstandar'],
+            [$nusantara, 'Kapsul Kunyit Putih', 'Kapsul', 'Jamu'],
         ];
+        $created = [];
 
         foreach ($tickets as [$client, $product, $form, $category]) {
-            $this->createTicket->handle([
+            $created[$product] = $this->createTicket->handle([
                 'client_id' => $client->id,
                 'product_name' => $product,
                 'dosage_form_id' => $forms[$form]->id,
                 'category_id' => $categories[$category]->id,
             ], $marketing);
         }
+
+        return $created;
     }
 }
