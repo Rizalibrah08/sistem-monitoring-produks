@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import Login from '../../resources/js/Pages/Auth/Login';
 import Clients from '../../resources/js/Pages/Backend/Clients';
+import Contracts from '../../resources/js/Pages/Backend/Contracts';
 import Dashboard from '../../resources/js/Pages/Backend/Dashboard';
 import DocumentRules from '../../resources/js/Pages/Backend/DocumentRules';
 import Master from '../../resources/js/Pages/Backend/Master';
@@ -452,9 +453,9 @@ const ticketListProps = {
     urls: { store: '/tickets', clients: '/clients' },
 };
 const ticketRoutes = { routes: { tickets: '/tickets' } };
-const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links', samples: '/tickets/5/samples', resolve_reviews: '/tickets/5/reviews/resolve' };
-const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false, resolve_reviews: false };
-const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [] };
+const ticketUrls = { materials: '/tickets/5/materials', create_material: '/master/materials', upload_links: '/tickets/5/upload-links', samples: '/tickets/5/samples', resolve_reviews: '/tickets/5/reviews/resolve', contract_store: '/contracts' };
+const noAccess = { manage_materials: false, create_material: false, manage_upload_links: false, record_sample: false, resolve_reviews: false, manage_contract: false, create_contract: false };
+const noMaterials = { materials: [], materialOptions: null, can: noAccess, urls: ticketUrls, uploadLinks: null, samples: [], reviews: [], contract: null, contractOptions: null };
 const ticketDetail = { id: 5, code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', dosage_form: 'Kapsul', category: 'Jamu', phase: 'awal', phase_label: 'Awal', status: 'aktif', status_label: 'Aktif', current_stage: 'Pengembangan sampel', created_by: 'Rizal Marketing', created_at: '05/11/2026 10:00' };
 type ChecklistDocumentFixture = { id: number; name: string; material: string | null; scope: string; requirement: string; pic: string | null; both_phases: boolean; status: string; status_label: string; revision_reason: string | null; requires_issued_at: boolean; requires_expires_at: boolean; can_upload: boolean; upload_url: string; current_version: { version: number; number: string; original_name: string; issued_at: string | null; expires_at: string | null; uploaded_at: string | null; download_url: string } | null };
 function checklistDocument(overrides: Partial<ChecklistDocumentFixture> & { id: number; name: string }): ChecklistDocumentFixture {
@@ -594,6 +595,8 @@ describe('ticket documents', () => {
                 uploadLinks={null}
                 samples={[]}
                 reviews={[]}
+                contract={null}
+                contractOptions={null}
             />,
             { ...ticketRoutes, auth: { user: { ...staff, role: 'rnd', role_label: 'R&D' }, permissions: ['tickets.view', 'ticket_materials.manage', 'materials.create'] } },
         );
@@ -658,6 +661,7 @@ describe('client upload links', () => {
                 ticket={{ code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', phase_label: 'Pra-registrasi', is_active: true }}
                 expires_at="19/11/2026 10:00"
                 progress={50}
+                contract={null}
                 documents={[
                     { id: 4, name: 'Surat kuasa', status: 'disetujui', status_label: 'Disetujui', revision_reason: null, requires_issued_at: false, requires_expires_at: false, can_upload: false, upload_url: '/unggah/abc/dokumen/4', current_version: { version: 1, original_name: 'kuasa.pdf', uploaded_at: '05/11/2026 10:00' } },
                     { id: 5, name: 'Sertifikat merek', status: 'perlu_revisi', status_label: 'Perlu revisi', revision_reason: 'Dokumen sudah kedaluwarsa pada 01/10/2026.', requires_issued_at: false, requires_expires_at: true, can_upload: true, upload_url: '/unggah/abc/dokumen/5', current_version: null },
@@ -750,5 +754,84 @@ describe('ticket reviews', () => {
         await user.click(screen.getByRole('button', { name: 'Tandai sudah ditinjau' }));
 
         expect(requests).toEqual(['/tickets/5/reviews/resolve']);
+    });
+});
+
+const contractDetail = {
+    id: 3, number: 'KTR/2026/0001', status: 'ditandatangani', status_label: 'Ditandatangani', service_value: 30000000, dp_percent: 50, payment_due_days: 7,
+    document_template_id: 2, template: 'Kontrak maklon', dp_amount: 15000000, settlement_amount: 15000000, is_generated: true, generation_error: null,
+    signed_at: '06/11/2026 09:00', confirmed_at: null, files: { pdf: '/contracts/3/files/pdf', signed: '/contracts/3/files/signed' },
+    urls: { update: '/contracts/3', send: '/contracts/3/send', signed: '/contracts/3/signed', confirm: '/contracts/3/confirm' },
+};
+
+describe('contracts', () => {
+    it('creates a contract for an eligible ticket with the default fifty percent down payment', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url, data });
+        });
+        renderPage(
+            <Contracts
+                contracts={{ data: [], current_page: 1, last_page: 1, total: 0, prev_page_url: null, next_page_url: null }}
+                filters={{ status: '' }}
+                statuses={[{ value: 'draf', label: 'Draf' }]}
+                createOptions={{ tickets: [{ value: 5, label: 'PRD-2026-0001 · Kapsul Jahe Merah' }], templates: [{ value: 2, label: 'Kontrak maklon' }], defaults: { dp_percent: 50, payment_due_days: 7 } }}
+                urls={{ store: '/contracts' }}
+            />,
+            { ...ticketRoutes, auth: { user: marketingUser, permissions: ['contracts.manage'] } },
+        );
+
+        await user.click(screen.getByRole('button', { name: 'Buat kontrak' }));
+        await user.selectOptions(screen.getByLabelText('Tiket'), '5');
+        await user.selectOptions(screen.getByLabelText('Templat kontrak'), '2');
+        await user.type(screen.getByLabelText('Nilai jasa (Rp)'), '30000000');
+        expect(screen.getByText('DP Rp15.000.000 · pelunasan Rp15.000.000')).toBeInTheDocument();
+        await user.click(screen.getAllByRole('button', { name: 'Buat kontrak' }).at(-1)!);
+
+        expect(requests).toEqual([{ url: '/contracts', data: { ticket_id: 5, document_template_id: 2, service_value: 30000000, dp_percent: 50, payment_due_days: 7 } }]);
+    });
+
+    it('lets marketing confirm a signed contract from the ticket page', async () => {
+        const user = userEvent.setup();
+        const requests: unknown[] = [];
+        vi.spyOn(router, 'post').mockImplementation((url) => {
+            requests.push(url);
+        });
+        renderPage(
+            <TicketShow ticket={ticketDetail} checklist={[]} stages={[]} history={[]} {...noMaterials} can={{ ...noAccess, manage_contract: true }} contract={contractDetail} contractOptions={{ templates: [], defaults: { dp_percent: 50, payment_due_days: 7 } }} />,
+            { ...ticketRoutes, auth: { user: marketingUser, permissions: ['tickets.view', 'contracts.manage'] } },
+        );
+
+        expect(screen.getByRole('heading', { name: 'Kontrak KTR/2026/0001' })).toBeInTheDocument();
+        expect(screen.getByRole('link', { name: 'Bertanda tangan' })).toHaveAttribute('href', '/contracts/3/files/signed');
+        await user.click(screen.getByRole('button', { name: 'Konfirmasi kontrak aktif' }));
+
+        expect(requests).toEqual(['/contracts/3/confirm']);
+    });
+
+    it('lets the client download the contract and upload the signed copy', async () => {
+        const user = userEvent.setup();
+        const requests: Array<{ url: string; data: Record<string, unknown> }> = [];
+        vi.spyOn(router, 'post').mockImplementation((url, data) => {
+            requests.push({ url: String(url), data: data as Record<string, unknown> });
+        });
+        renderPage(
+            <UploadLink
+                ticket={{ code: 'PRD-2026-0001', product_name: 'Kapsul Jahe Merah', client: 'Nusantara Herbal', client_pic: 'Nadia', marketing_user: 'Rizal Marketing', phase_label: 'Pra-registrasi', is_active: true }}
+                expires_at="19/11/2026 10:00"
+                progress={0}
+                documents={[]}
+                contract={{ number: 'KTR/2026/0001', status: 'dikirim', status_label: 'Dikirim', signed_at: null, can_sign: true, download_url: '/unggah/abc/kontrak', upload_url: '/unggah/abc/kontrak' }}
+            />,
+        );
+
+        expect(screen.getByRole('link', { name: 'Unduh kontrak' })).toHaveAttribute('href', '/unggah/abc/kontrak');
+        await user.upload(screen.getByLabelText('Kontrak bertanda tangan'), new File(['ttd'], 'kontrak-ttd.pdf', { type: 'application/pdf' }));
+        await user.click(screen.getByRole('button', { name: 'Kirim kontrak bertanda tangan' }));
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0].url).toBe('/unggah/abc/kontrak');
+        expect((requests[0].data.file as File).name).toBe('kontrak-ttd.pdf');
     });
 });

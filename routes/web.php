@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\ClientUploadController;
+use App\Http\Controllers\ContractController;
 use App\Http\Controllers\CriterionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentRuleController;
@@ -33,6 +34,8 @@ use Illuminate\Support\Facades\Route;
 Route::redirect('/', '/dashboard')->name('home');
 
 Route::get('/unggah/{token}', [ClientUploadController::class, 'show'])->middleware('throttle:60,1')->name('client-uploads.show');
+Route::get('/unggah/{token}/kontrak', [ClientUploadController::class, 'contract'])->middleware('throttle:60,1')->name('client-uploads.contract');
+Route::post('/unggah/{token}/kontrak', [ClientUploadController::class, 'signContract'])->middleware('throttle:20,1')->name('client-uploads.contract.signed');
 Route::post('/unggah/{token}/dokumen/{ticketDocument}', [ClientUploadController::class, 'store'])->middleware('throttle:20,1')->name('client-uploads.store');
 
 Route::middleware('guest')->group(function (): void {
@@ -76,9 +79,18 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::get('/tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
         Route::post('/tickets/{ticket}/documents/{ticketDocument}/versions', [TicketDocumentVersionController::class, 'store'])->name('tickets.documents.versions.store');
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
+        Route::get('/contracts/{contract}/files/{file}', [ContractController::class, 'download'])->whereIn('file', ['word', 'pdf', 'signed'])->name('contracts.files');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
     Route::post('/tickets/{ticket}/reviews/resolve', [TicketReviewController::class, 'resolve'])->middleware('can:ticket_reviews.resolve')->name('tickets.reviews.resolve');
+    Route::middleware('can:contracts.manage')->group(function (): void {
+        Route::get('/contracts', [ContractController::class, 'index'])->name('contracts.index');
+        Route::post('/contracts', [ContractController::class, 'store'])->name('contracts.store');
+        Route::put('/contracts/{contract}', [ContractController::class, 'update'])->name('contracts.update');
+        Route::post('/contracts/{contract}/send', [ContractController::class, 'send'])->name('contracts.send');
+        Route::post('/contracts/{contract}/signed', [ContractController::class, 'signed'])->name('contracts.signed');
+        Route::post('/contracts/{contract}/confirm', [ContractController::class, 'confirm'])->name('contracts.confirm');
+    });
     Route::middleware('can:samples.record')->group(function (): void {
         Route::get('/samples', [SampleApprovalController::class, 'index'])->name('samples.index');
         Route::post('/tickets/{ticket}/samples', [SampleApprovalController::class, 'store'])->name('tickets.samples.store');

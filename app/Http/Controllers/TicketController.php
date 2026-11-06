@@ -8,6 +8,7 @@ use App\Http\Requests\CreateTicketRequest;
 use App\Models\Activity;
 use App\Models\Category;
 use App\Models\Client;
+use App\Models\Contract;
 use App\Models\DosageForm;
 use App\Models\Material;
 use App\Models\SampleApproval;
@@ -39,6 +40,11 @@ class TicketController extends Controller
         'sample.recorded' => 'Keputusan sampel dicatat',
         'ticket.review_flagged' => 'Ditandai perlu ditinjau',
         'ticket.review_resolved' => 'Ditandai sudah ditinjau',
+        'contract.created' => 'Kontrak dibuat',
+        'contract.updated' => 'Kontrak diubah',
+        'contract.sent' => 'Kontrak dikirim',
+        'contract.signed_uploaded' => 'Kontrak bertanda tangan diunggah',
+        'contract.confirmed' => 'Kontrak dikonfirmasi aktif',
         'upload_link.revoked' => 'Tautan unggah klien dicabut',
     ];
 
@@ -111,11 +117,12 @@ class TicketController extends Controller
 
     public function show(Request $request, Ticket $ticket): Response
     {
-        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials', 'sampleApprovals.recorder']);
+        $ticket->load(['client.marketingUser', 'dosageForm', 'category', 'currentStage', 'creator', 'documents.documentType', 'documents.material', 'documents.document.currentVersion', 'stageLogs.stage', 'materials', 'sampleApprovals.recorder', 'contract.documentTemplate']);
         $user = $request->user();
         abort_unless($ticket->isVisibleTo($user), 403);
         $canManageMaterials = $user->can('ticket_materials.manage');
         $canManageUploadLinks = $user->can('upload_links.manage');
+        $canManageContract = $user->can('contracts.manage');
         $sampleApproved = $ticket->sampleApprovals->contains(fn (SampleApproval $approval): bool => $approval->decision === SampleDecision::Approved);
 
         return Inertia::render('Backend/TicketShow', [
@@ -179,6 +186,8 @@ class TicketController extends Controller
                 ->map(fn (Material $material): array => ['value' => $material->id, 'label' => $material->supplier ? "{$material->name} ({$material->supplier})" : $material->name]) : null,
             'can' => ['manage_materials' => $canManageMaterials, 'create_material' => $user->can('materials.create'), 'manage_upload_links' => $canManageUploadLinks,
                 'resolve_reviews' => $user->can('ticket_reviews.resolve'),
+                'manage_contract' => $canManageContract,
+                'create_contract' => $canManageContract && $sampleApproved && $ticket->contract === null && $ticket->status === TicketStatus::Active,
                 'record_sample' => $user->can('samples.record') && $ticket->status === TicketStatus::Active && ! $sampleApproved],
             'urls' => [
                 'materials' => route('tickets.materials.update', $ticket, absolute: false),
@@ -186,7 +195,37 @@ class TicketController extends Controller
                 'upload_links' => route('tickets.upload-links.store', $ticket, absolute: false),
                 'samples' => route('tickets.samples.store', $ticket, absolute: false),
                 'resolve_reviews' => route('tickets.reviews.resolve', $ticket, absolute: false),
+                'contract_store' => route('contracts.store', absolute: false),
             ],
+            'contract' => ($contract = $ticket->contract) === null ? null : [
+                'id' => $contract->id,
+                'number' => $contract->number,
+                'status' => $contract->status->value,
+                'status_label' => $contract->status->label(),
+                'service_value' => $contract->service_value,
+                'dp_percent' => $contract->dp_percent,
+                'payment_due_days' => $contract->payment_due_days,
+                'document_template_id' => $contract->document_template_id,
+                'template' => $contract->documentTemplate->name,
+                'dp_amount' => $contract->dpAmount(),
+                'settlement_amount' => $contract->settlementAmount(),
+                'is_generated' => $contract->generated_at !== null,
+                'generation_error' => $contract->generation_error,
+                'signed_at' => $contract->signed_at?->format('d/m/Y H:i'),
+                'confirmed_at' => $contract->confirmed_at?->format('d/m/Y H:i'),
+                'files' => collect(['word' => $contract->word_path, 'pdf' => $contract->pdf_path, 'signed' => $contract->signed_path])
+                    ->filter()->map(fn (string $path, string $file): string => route('contracts.files', [$contract, $file], absolute: false)),
+                'urls' => [
+                    'update' => route('contracts.update', $contract, absolute: false),
+                    'send' => route('contracts.send', $contract, absolute: false),
+                    'signed' => route('contracts.signed', $contract, absolute: false),
+                    'confirm' => route('contracts.confirm', $contract, absolute: false),
+                ],
+            ],
+            'contractOptions' => $canManageContract ? [
+                'templates' => ContractController::templateOptions(),
+                'defaults' => ['dp_percent' => Contract::DEFAULT_DP_PERCENT, 'payment_due_days' => Contract::DEFAULT_PAYMENT_DUE_DAYS],
+            ] : null,
             'reviews' => $ticket->reviews()->open()->orderBy('id')->get()->map(fn (TicketReview $review): array => [
                 'id' => $review->id,
                 'trigger_label' => $review->trigger->label(),

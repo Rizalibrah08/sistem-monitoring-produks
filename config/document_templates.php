@@ -7,6 +7,8 @@
  */
 
 return [
+    'company_name' => env('COMPANY_NAME', 'PT Aisha Zahra Herbalaboratories'),
+
     'variables' => [
         'nama_perusahaan' => 'Nama perusahaan maklon',
         'tanggal_dokumen' => 'Tanggal dokumen dibuat (dd/mm/yyyy)',
