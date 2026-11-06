@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** Satu tiket untuk satu produk yang didaftarkan ke BPOM (BR-01). */
@@ -79,6 +80,16 @@ class Ticket extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(TicketDocument::class);
+    }
+
+    /**
+     * Bahan baku produk yang dipilih R&D dari master (FR-14).
+     *
+     * @return BelongsToMany<Material, $this>
+     */
+    public function materials(): BelongsToMany
+    {
+        return $this->belongsToMany(Material::class, 'ticket_materials')->withTimestamps();
     }
 
     /**

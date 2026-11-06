@@ -18,6 +18,7 @@ use App\Http\Controllers\PreviewController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TicketDocumentVersionController;
+use App\Http\Controllers\TicketMaterialController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\WorkspaceModuleController;
 use App\Http\Middleware\EnsureActiveStaffSession;
@@ -70,6 +71,7 @@ Route::middleware(['auth', EnsureActiveStaffSession::class])->group(function ():
         Route::get('/document-versions/{documentVersion}/download', DocumentVersionDownloadController::class)->name('document-versions.download');
     });
     Route::post('/tickets', [TicketController::class, 'store'])->middleware('can:tickets.create')->name('tickets.store');
+    Route::put('/tickets/{ticket}/materials', [TicketMaterialController::class, 'update'])->middleware('can:ticket_materials.manage')->name('tickets.materials.update');
 
     Route::middleware('can:clients.manage')->group(function (): void {
         Route::get('/clients', [ClientController::class, 'index'])->name('clients.index');
